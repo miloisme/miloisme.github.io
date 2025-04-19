@@ -37,7 +37,8 @@
         }
         return gk_fileData[filename] || "";
         }
-        </script><!DOCTYPE html>
+</script>
+<!DOCTYPE html>
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
@@ -67,7 +68,6 @@
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣狀態</h2>
                 <p id="temperature" class="text-gray-700"><span class="font-semibold">現時氣溫:</span> 載入中...</p>
                 <p id="humidity" class="text-gray-700"><span class="font-semibold">現時濕度:</span> 載入中...</p>
-                <p id="today-temp-range" class="text-gray-700"><span class="font-semibold">今日氣溫範圍:</span> 載入中...</p>
                 <p id="local-forecast" class="text-gray-700"><span class="font-semibold">概覽與展望:</span> 載入中...</p>
                 <p id="uv-index" class="text-gray-700"><span class="font-semibold">紫外綫指數:</span> 載入中...</p>
                 <img id="weather-icon" class="w-12 h-12 rounded-full p-2 bg-blue-50 mt-4" alt="Weather Icon">
@@ -164,21 +164,21 @@
             });
         }
 
-        // Fetch today's temperature range from 9-day forecast
+        // Fetch 9-day forecast for chart and modal
         function fetchTodayTempRange() {
             $.ajax({
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc',
                 method: 'GET',
                 dataType: 'json',
                 success: function(data) {
-                    const today = data.weatherForecast[0]; // First entry is today
-                    $('#today-temp-range').html(`<span class="font-semibold">今日氣溫範圍:</span> ${today.forecastMintemp.value}°${today.forecastMintemp.unit} - ${today.forecastMaxtemp.value}°${today.forecastMaxtemp.unit}`);
                     forecastData = data.weatherForecast; // Store for chart and modal
                     renderForecastChart();
-                    populateForecastModal();
+                    populate
+
+ForecastModal();
                 },
                 error: function() {
-                    $('#today-temp-range').html('<p class="text-red-500">無法載入今日氣溫範圍</p>');
+                    console.error('9-Day Forecast API Error');
                 }
             });
         }
@@ -304,5 +304,6 @@
             fetchWarnings();
         });
     </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932c3eb72bb8453d',t:'MTc0NTA2NDA2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
