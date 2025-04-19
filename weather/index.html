@@ -1,0 +1,306 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>香港天氣</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-sky-50 min-h-screen flex flex-col items-center p-4">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-100 to-blue-200 w-full max-w-5xl mx-auto rounded-xl shadow-md py-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 text-center">香港天氣</h1>
+    </header>
+
+    <!-- Main Content -->
+    <div class="w-full max-w-5xl mx-auto space-y-6">
+        <!-- Part 1: Current Weather and Warnings -->
+        <div id="current-weather" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div id="current-status" class="bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣狀態</h2>
+                <p id="temperature" class="text-gray-700"><span class="font-semibold">現時氣溫:</span> 載入中...</p>
+                <p id="humidity" class="text-gray-700"><span class="font-semibold">現時濕度:</span> 載入中...</p>
+                <p id="today-temp-range" class="text-gray-700"><span class="font-semibold">今日氣溫範圍:</span> 載入中...</p>
+                <p id="local-forecast" class="text-gray-700"><span class="font-semibold">概覽與展望:</span> 載入中...</p>
+                <p id="uv-index" class="text-gray-700"><span class="font-semibold">紫外綫指數:</span> 載入中...</p>
+                <img id="weather-icon" class="w-12 h-12 rounded-full p-2 bg-blue-50 mt-4" alt="Weather Icon">
+            </div>
+            <div id="warnings" class="bg-amber-50 rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣警告</h2>
+                <div id="warnings-data" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- Part 2: 9-Day Weather Forecast with Chart -->
+        <div id="forecast" class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">九天天氣預報</h2>
+                <span class="text-sm text-blue-600 ml-2">點擊圖表查看詳情</span>
+            </div>
+            <canvas id="tempChart" class="w-full h-64 cursor-pointer transform hover:scale-[1.02] transition-transform duration-200"></canvas>
+        </div>
+    </div>
+
+    <!-- Modal for Detailed Forecast -->
+    <div id="forecast-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">詳細九天天氣預報</h2>
+            <div id="forecast-data" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+            <button id="close-modal" class="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200">關閉</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-50 w-full mt-6 border-t border-gray-200">
+        <p class="text-sm font-medium text-gray-600 text-center py-4">數據來源自香港天文台，本網頁正在測試中</p>
+    </footer>
+
+    <script>
+        let forecastData = [];
+
+        // Fetch current weather and UV index (using rhrread for local weather report)
+        function fetchCurrentWeather() {
+            $.ajax({
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc',
+                method: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    // Temperature
+                    const temp = data.temperature.data[0];
+                    $('#temperature').html(`<span class="font-semibold">現時氣溫:</span> ${temp.value}°${temp.unit}`);
+
+                    // Humidity
+                    const humidity = data.humidity.data[0];
+                    $('#humidity').html(`<span class="font-semibold">現時濕度:</span> ${humidity.value}%`);
+
+                    // Weather Icon
+                    const icon = data.icon[0];
+                    $('#weather-icon').attr('src', `https://www.hko.gov.hk/images/HKOWxIconOutline/pic${icon}.png`);
+
+                    // UV Index and Intensity
+                    if (data.uvindex && data.uvindex.data && data.uvindex.data.length > 0) {
+                        const uvData = data.uvindex.data[0];
+                        const uvValue = uvData.value !== undefined ? uvData.value : 'N/A';
+                        const uvDesc = uvData.desc || 'N/A';
+                        $('#uv-index').html(`<span class="font-semibold">紫外綫指數:</span> ${uvValue} (${uvDesc})`);
+                    } else {
+                        $('#uv-index').html('<span class="font-semibold">紫外綫指數:</span> <span class="text-red-500">無法載入紫外綫資料</span>');
+                    }
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Current Weather API Error:', textStatus, errorThrown);
+                    $('#current-status').html('<p class="text-red-500">無法載入當前天氣</p>');
+                }
+            });
+        }
+
+        // Fetch local weather forecast (using flw for general situation and outlook)
+        function fetchLocalForecast() {
+            $.ajax({
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=tc',
+                method: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    const generalSituation = data.generalSituation || '';
+                    const outlook = data.outlook || '';
+                    let combinedForecast = 'N/A';
+                    if (generalSituation || outlook) {
+                        combinedForecast = `${generalSituation}${outlook}`;
+                    }
+                    $('#local-forecast').html(`<span class="font-semibold">概覽與展望:</span> ${combinedForecast}`);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('Local Forecast API Error:', textStatus, errorThrown);
+                    $('#local-forecast').html('<p class="text-red-500">無法載入概覽與展望</p>');
+                }
+            });
+        }
+
+        // Fetch today's temperature range from 9-day forecast
+        function fetchTodayTempRange() {
+            $.ajax({
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc',
+                method: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    const today = data.weatherForecast[0]; // First entry is today
+                    $('#today-temp-range').html(`<span class="font-semibold">今日氣溫範圍:</span> ${today.forecastMintemp.value}°${today.forecastMintemp.unit} - ${today.forecastMaxtemp.value}°${today.forecastMaxtemp.unit}`);
+                    forecastData = data.weatherForecast; // Store for chart and modal
+                    renderForecastChart();
+                    populateForecastModal();
+                },
+                error: function() {
+                    $('#today-temp-range').html('<p class="text-red-500">無法載入今日氣溫範圍</p>');
+                }
+            });
+        }
+
+        // Fetch weather warnings
+        function fetchWarnings() {
+            $.ajax({
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc',
+                method: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    $('#warnings-data').empty();
+                    for (const [code, warning] of Object.entries(data)) {
+                        if (warning.name) {
+                            const warningHtml = `
+                                <div class="bg-amber-100 p-2 rounded-lg hover:bg-amber-200 transition duration-200">
+                                    <p class="font-semibold">${warning.name}</p>
+                                    <p class="text-sm text-gray-600">發出: ${warning.issueTime}</p>
+                                </div>`;
+                            $('#warnings-data').append(warningHtml);
+                        }
+                    }
+                    if ($('#warnings-data').is(':empty')) {
+                        $('#warnings-data').html('<p class="text-gray-600">目前無天氣警告</p>');
+                    }
+                },
+                error: function() {
+                    $('#warnings-data').html('<p class="text-red-500">無法載入天氣警告</p>');
+                }
+            });
+        }
+
+        // Render temperature chart
+        function renderForecastChart() {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            const dates = forecastData.map(f => f.forecastDate);
+            const maxTemps = forecastData.map(f => f.forecastMaxtemp.value);
+            const minTemps = forecastData.map(f => f.forecastMintemp.value);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '最高溫度 (°C)',
+                            data: maxTemps,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: '最低溫度 (°C)',
+                            data: minTemps,
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: { display: true, text: '溫度 (°C)', color: '#4B5563' }
+                        },
+                        x: {
+                            title: { display: true, text: '日期', color: '#4B5563' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#4B5563' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Populate modal with detailed forecast
+        function populateForecastModal() {
+            $('#forecast-data').empty();
+            forecastData.forEach(forecast => {
+                const forecastHtml = `
+                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
+                        <p class="text-gray-700"><span class="font-semibold">日期:</span> ${forecast.forecastDate}</p>
+                        <p class="text-gray-700"><span class="font-semibold">星期:</span> ${forecast.week}</p>
+                        <p class="text-gray-700"><span class="font-semibold">天氣:</span> ${forecast.forecastWeather}</p>
+                        <p class="text-gray-700"><span class="font-semibold">最高溫度:</span> ${forecast.forecastMaxtemp.value}°${forecast.forecastMaxtemp.unit}</p>
+                        <p class="text-gray-700"><span class="font-semibold">最低溫度:</span> ${forecast.forecastMintemp.value}°${forecast.forecastMintemp.unit}</p>
+                        <p class="text-gray-700"><span class="font-semibold">降雨概率:</span> ${forecast.PSR}</p>
+                        <p class="text-gray-700"><span class="font-semibold">風向風速:</span> ${forecast.forecastWind}</p>
+                        <p class="text-gray-700"><span class="font-semibold">相對濕度:</span> ${forecast.forecastMinrh.value}% - ${forecast.forecastMaxrh.value}%</p>
+                        <img src="https://www.hko.gov.hk/images/HKOWxIconOutline/pic${forecast.ForecastIcon}.png" alt="Weather Icon" class="w-12 h-12 mt-2">
+                    </div>`;
+                $('#forecast-data').append(forecastHtml);
+            });
+        }
+
+        // Modal toggle
+        $('#tempChart').click(function() {
+            $('#forecast-modal').removeClass('hidden').addClass('opacity-100');
+        });
+
+        $('#forecast-modal').click(function(e) {
+            if (e.target.id === 'forecast-modal') {
+                $('#forecast-modal').addClass('hidden').removeClass('opacity-100');
+            }
+        });
+
+        $('#close-modal').click(function() {
+            $('#forecast-modal').addClass('hidden').removeClass('opacity-100');
+        });
+
+        // Initialize data fetching
+        $(document).ready(function() {
+            fetchCurrentWeather();
+            fetchLocalForecast();
+            fetchTodayTempRange();
+            fetchWarnings();
+        });
+    </script>
+</body>
+</html>
