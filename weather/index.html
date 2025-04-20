@@ -37,47 +37,7 @@
         }
         return gk_fileData[filename] || "";
         }
-        </script><script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-</script>
-<!DOCTYPE html>
+        </script><!DOCTYPE html>
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
@@ -86,9 +46,48 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #aqhi-map {
+            height: 400px;
+            width: 100%;
+        }
+        .info {
+            padding: 6px 8px;
+            font-size: 14px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .legend {
+            line-height: 18px;
+            color: #555;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+        .low { color: green; font-weight: bold; }
+        .moderate { color: orange; font-weight: bold; }
+        .high { color: red; font-weight: bold; }
+        .very-high { color: brown; font-weight: bold; }
+        .serious { color: black; font-weight: bold; }
+        .aqhi-value {
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            text-align: center;
+            line-height: 24px;
+        }
+        .leaflet-control-attribution {
+            display: none;
         }
     </style>
 </head>
@@ -119,11 +118,18 @@
 
         <!-- Part 2: 9-Day Weather Forecast with Chart -->
         <div id="forecast" class="bg-white rounded-xl shadow-md p-6">
-            <div POUR class="flex items-center mb-4">
+            <div class="flex items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-800">九天天氣預報</h2>
                 <span class="text-sm text-blue-600 ml-2">點擊圖表查看詳情</span>
             </div>
             <canvas id="tempChart" class="w-full h-64 cursor-pointer transform hover:scale-[1.02] transition-transform duration-200"></canvas>
+        </div>
+
+        <!-- Part 3: AQHI Map -->
+        <div id="aqhi" class="bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">香港空氣質素健康指數（AQHI）</h2>
+            <div id="aqhi-map"></div>
+            <p id="aqhi-error" class="text-red-500 text-center mt-4"></p>
         </div>
     </div>
 
@@ -138,33 +144,58 @@
 
     <!-- Footer -->
     <footer class="bg-gray-50 w-full mt-6 border-t border-gray-200">
-        <p class="text-sm font-medium text-gray-600 text-center py-4">數據來源自香港天文台，本網頁正在測試中</p>
+        <p class="text-sm font-medium text-gray-600 text-center py-4">數據來源自香港天文台及香港環境保護署，本網頁正在測試中</p>
         <p class="text-sm font-medium text-gray-600 text-center py-4">© milodwl.github.io</p>
     </footer>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+
         let forecastData = [];
 
-        // Fetch current weather and UV index (using rhrread for local weather report)
+        // Fetch current weather and UV index
         function fetchCurrentWeather() {
             $.ajax({
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc',
                 method: 'GET',
                 dataType: 'json',
                 success: function(data) {
-                    // Temperature
                     const temp = data.temperature.data[0];
                     $('#temperature').html(`<span class="font-semibold">現時氣溫:</span> ${temp.value}°${temp.unit}`);
-
-                    // Humidity
                     const humidity = data.humidity.data[0];
                     $('#humidity').html(`<span class="font-semibold">現時濕度:</span> ${humidity.value}%`);
-
-                    // Weather Icon
                     const icon = data.icon[0];
                     $('#weather-icon').attr('src', `https://www.hko.gov.hk/images/HKOWxIconOutline/pic${icon}.png`);
-
-                    // UV Index and Intensity
                     if (data.uvindex && data.uvindex.data && data.uvindex.data.length > 0) {
                         const uvData = data.uvindex.data[0];
                         const uvValue = uvData.value !== undefined ? uvData.value : 'N/A';
@@ -204,14 +235,13 @@
             });
         }
 
-        // Fetch 9-day forecast for chart and modal
         function fetchTodayTempRange() {
             $.ajax({
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc',
                 method: 'GET',
                 dataType: 'json',
                 success: function(data) {
-                    forecastData = data.weatherForecast; // Store for chart and modal
+                    forecastData = data.weatherForecast;
                     renderForecastChart();
                     populateForecastModal();
                 },
@@ -221,7 +251,6 @@
             });
         }
 
-        // Fetch weather warnings
         function fetchWarnings() {
             $.ajax({
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc',
@@ -249,7 +278,6 @@
             });
         }
 
-        // Render temperature chart
         function renderForecastChart() {
             const ctx = document.getElementById('tempChart').getContext('2d');
             const dates = forecastData.map(f => f.forecastDate);
@@ -299,7 +327,6 @@
             });
         }
 
-        // Populate modal with detailed forecast
         function populateForecastModal() {
             $('#forecast-data').empty();
             forecastData.forEach(forecast => {
@@ -317,6 +344,118 @@
                     </div>`;
                 $('#forecast-data').append(forecastHtml);
             });
+        }
+
+        // AQHI Map Functionality
+        function initAqhiMap() {
+            const map = L.map('aqhi-map', {
+                attributionControl: false
+            }).setView([22.3193, 114.1694], 11);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            const districts = {
+                "中西區": [22.2799, 114.1474],
+                "南區": [22.2432, 114.1974],
+                "東區": [22.2798, 114.2241],
+                "觀塘": [22.3129, 114.2258],
+                "深水埗": [22.3331, 114.1628],
+                "葵涌": [22.3639, 114.1394],
+                "荃灣": [22.3683, 114.1241],
+                "將軍澳": [22.3080, 114.2586],
+                "元朗": [22.4445, 114.0222],
+                "屯門": [22.3916, 113.9751],
+                "東涌": [22.2894, 113.9441],
+                "大埔": [22.4457, 114.1687],
+                "沙田": [22.3871, 114.1954],
+                "北區": [22.4947, 114.1381],
+                "塔門": [22.4978, 114.3557]
+            };
+
+            const proxyUrl = "https://api.allorigins.win/raw?url=";
+            const targetUrl = "https://www.aqhi.gov.hk/epd/ddata/html/out/aqhi_ind_rss_ChT.xml";
+
+            fetch(proxyUrl + encodeURIComponent(targetUrl))
+                .then(response => response.text())
+                .then(str => {
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(str, "application/xml");
+                    const items = xml.querySelectorAll("item");
+
+                    items.forEach(item => {
+                        const title = item.querySelector("title").textContent;
+                        const [district, index, level] = title.split(" : ");
+                        if (districts[district]) {
+                            const [lat, lng] = districts[district];
+                            let levelClass = "low";
+                            let color = 'green';
+
+                            if (level.includes("中")) {
+                                levelClass = "moderate";
+                                color = 'orange';
+                            } else if (level.includes("甚高")) {
+                                levelClass = "very-high";
+                                color = 'brown';
+                            } else if (level.includes("嚴重")) {
+                                levelClass = "serious";
+                                color = 'black';
+                            } else if (level.includes("高")) {
+                                levelClass = "high";
+                                color = 'red';
+                            }
+
+                            L.circleMarker([lat, lng], {
+                                radius: 12,
+                                fillColor: color,
+                                color: '#000',
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            }).addTo(map)
+                                .bindPopup(`
+                                    <b>${district}</b><br>
+                                    指數: ${index}<br>
+                                    風險級別: <span class="${levelClass}">${level}</span>
+                                `);
+
+                            L.marker([lat, lng], {
+                                icon: L.divIcon({
+                                    className: 'aqhi-value',
+                                    html: index,
+                                    iconSize: [24, 24],
+                                    iconAnchor: [12, 12]
+                                })
+                            }).addTo(map)
+                                .bindPopup(`
+                                    <b>${district}</b><br>
+                                    指數: ${index}<br>
+                                    風險級別: <span class="${levelClass}">${level}</span>
+                                `);
+                        }
+                    });
+
+                    const legend = L.control({position: 'bottomright'});
+                    legend.onAdd = function (map) {
+                        const div = L.DomUtil.create('div', 'info legend');
+                        const grades = [
+                            {label: '低', color: 'green'},
+                            {label: '中', color: 'orange'},
+                            {label: '高', color: 'red'},
+                            {label: '甚高', color: 'brown'},
+                            {label: '嚴重', color: 'black'}
+                        ];
+                        grades.forEach(grade => {
+                            div.innerHTML +=
+                                `<i style="background:${grade.color}"></i> ${grade.label}<br>`;
+                        });
+                        return div;
+                    };
+                    legend.addTo(map);
+                })
+                .catch(err => {
+                    console.error("💥 錯誤：", err);
+                    document.getElementById('aqhi-error').textContent = "❌ 無法載入資料（可能是 Proxy 被封鎖）。";
+                });
         }
 
         // Modal toggle
@@ -340,8 +479,10 @@
             fetchLocalForecast();
             fetchTodayTempRange();
             fetchWarnings();
+            initAqhiMap();
         });
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932c3eb72bb8453d',t:'MTc0NTA2NDA2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9330ec3ace5844de',t:'MTc0NTExMzExMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
