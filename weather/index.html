@@ -89,6 +89,15 @@
         .leaflet-control-attribution {
             display: none;
         }
+        .windy-iframe {
+            width: 100%;
+            height: 300px;
+        }
+        @media (min-width: 768px) {
+            .windy-iframe {
+                height: 450px;
+            }
+        }
     </style>
 </head>
 <body class="bg-sky-50 min-h-screen flex flex-col items-center p-4">
@@ -128,8 +137,24 @@
         <!-- Part 3: AQHI Map -->
         <div id="aqhi" class="bg-white rounded-xl shadow-md p-6">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">香港空氣質素健康指數（AQHI）</h2>
+            <p class="text-sm text-gray-600 mb-4 text-center">資料來源：<a href="https://www.aqhi.gov.hk/" target="_blank" class="text-blue-600 hover:underline">環保署官方網站</a></p>
             <div id="aqhi-map"></div>
             <p id="aqhi-error" class="text-red-500 text-center mt-4"></p>
+        </div>
+
+        <!-- Part 4: Windy.com Radar and Gust Maps -->
+        <div id="windy-maps" class="bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣雷達與陣風地圖</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雷達地圖</h3>
+                    <iframe class="windy-iframe" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=m/s&zoom=5&overlay=radar&product=radar&level=surface&lat=24.012&lon=114.293" frameborder="0"></iframe>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">陣風地圖</h3>
+                    <iframe class="windy-iframe" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=m/s&zoom=5&overlay=gust&product=ecmwf&level=surface&lat=18.563&lon=114.302" frameborder="0"></iframe>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -144,7 +169,7 @@
 
     <!-- Footer -->
     <footer class="bg-gray-50 w-full mt-6 border-t border-gray-200">
-        <p class="text-sm font-medium text-gray-600 text-center py-4">數據來源自香港天文台及香港環境保護署，本網頁正在測試中</p>
+        <p class="text-sm font-medium text-gray-600 text-center py-4">數據來源自香港天文台、香港環境保護署及 Windy.com，本網頁正在測試中</p>
         <p class="text-sm font-medium text-gray-600 text-center py-4">© milodwl.github.io</p>
     </footer>
 
@@ -183,7 +208,6 @@
 
         let forecastData = [];
 
-        // Fetch current weather and UV index
         function fetchCurrentWeather() {
             $.ajax({
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc',
@@ -346,7 +370,6 @@
             });
         }
 
-        // AQHI Map Functionality
         function initAqhiMap() {
             const map = L.map('aqhi-map', {
                 attributionControl: false
@@ -458,7 +481,6 @@
                 });
         }
 
-        // Modal toggle
         $('#tempChart').click(function() {
             $('#forecast-modal').removeClass('hidden').addClass('opacity-100');
         });
@@ -473,7 +495,6 @@
             $('#forecast-modal').addClass('hidden').removeClass('opacity-100');
         });
 
-        // Initialize data fetching
         $(document).ready(function() {
             fetchCurrentWeather();
             fetchLocalForecast();
