@@ -1,0 +1,347 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KMB Bus ETA Search</title>
+    <style>
+        /* 嵌入式 Tailwind CSS（針對應用程式所需的最小化子集） */
+        *,::before,::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}html{line-height:1.5;-webkit-text-size-adjust:100%}body{margin:0;min-height:100vh;font-family:ui-sans-serif,system-ui,sans-serif}h1{font-size:1.5rem;line-height:2rem;font-weight:700}@media (min-width:640px){h1{font-size:1.875rem;line-height:2.25rem}}table{width:100%;border-collapse:collapse}th,td{padding:0.5rem;text-align:left}tr{border-bottom-width:1px}button{font-family:inherit;font-size:100%;line-height:inherit;color:inherit;margin:0;padding:0;cursor:pointer}select{font-family:inherit;font-size:1rem;-webkit-appearance:none;-moz-appearance:none;appearance:none;padding:0.5rem;border-width:1px;border-radius:0.375rem}input{font-family:inherit;font-size:1rem;padding:0.5rem;border-width:1px;border-radius:0.375rem}.flex{display:flex}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-center{justify-content:center}.gap-4{gap:1rem}.border{border-width:1px}.border-b{border-bottom-width:1px}.border-gray-200{border-color:#e5e7eb}.bg-gray-100{background-color:#f3f4f6}.bg-white{background-color:#fff}.bg-gray-200{background-color:#e5e7eb}.bg-blue-500{background-color:#3b82f6}.bg-blue-600{background-color:#2563eb}.bg-gray-400{background-color:#9ca3af}.bg-red-100{background-color:#fef2f2}.text-white{color:#fff}.text-blue-600{color:#2563eb}.text-blue-800{color:#1e40af}.text-red-700{color:#b91c1c}.text-center{text-align:center}.font-bold{font-weight:700}.p-2{padding:0.5rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.mb-4{margin-bottom:1rem}.mx-auto{margin-left:auto;margin-right:auto}.min-h-screen{min-height:100vh}.max-w-4xl{max-width:56rem}.rounded{border-radius:0.375rem}.rounded-lg{border-radius:0.5rem}.shadow-lg{box-shadow:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -4px rgba(0,0,0,0.1)}.overflow-x-auto{overflow-x:auto}.underline{text-decoration:underline}.hover\:bg-blue-600:hover{background-color:#2563eb}.hover\:text-blue-800:hover{color:#1e40af}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.focus\:ring-2:focus{--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;box-shadow:0 0 #0000,0 0 #0000,0 0 0 2px rgba(59,130,246,0.5)}.focus\:ring-blue-500:focus{--tw-ring-color:#3b82f6}.disabled\:bg-gray-400:disabled{background-color:#9ca3af}@media (min-width:640px){.sm\:flex-row{flex-direction:row}}.flex-1{flex:1 1 0%}
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div id="root"></div>
+
+    <!-- React 和 ReactDOM CDN（固定版本） -->
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js" onerror="console.error('無法載入 React 腳本');"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js" onerror="console.error('無法載入 ReactDOM 腳本');"></script>
+    <!-- Babel CDN（固定版本） -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.6/babel.min.js" onerror="console.error('無法載入 Babel 腳本');"></script>
+
+    <script type="text/babel">
+        // 錯誤邊界組件
+        class ErrorBoundary extends React.Component {
+            state = { hasError: false, errorMessage: '' };
+            static getDerivedStateFromError(error) {
+                return { hasError: true, errorMessage: error.message };
+            }
+            componentDidCatch(error, errorInfo) {
+                console.error('React 錯誤:', error, errorInfo);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div class="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+                            <h1 class="text-2xl font-bold mb-4 text-center">應用程式錯誤</h1>
+                            <div class="bg-red-100 text-red-700 p-4 rounded">
+                                無法載入應用程式：{this.state.errorMessage}。請檢查控制台並嘗試刷新頁面。
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        function BusETASearch() {
+            const [route, setRoute] = React.useState('');
+            const [direction, setDirection] = React.useState('outbound');
+            const [etaData, setEtaData] = React.useState([]);
+            const [error, setError] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+            const [stopErrorCount, setStopErrorCount] = React.useState(0);
+            const stopCache = React.useRef({});
+
+            const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP 錯誤 ${response.status}: ${response.statusText}`);
+                        }
+                        return await response.json();
+                    } catch (err) {
+                        console.error(`嘗試 ${i + 1} 失敗，URL: ${url}:`, err);
+                        if (i === retries - 1) throw err;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            };
+
+            const fetchETA = async () => {
+                setError('');
+                setEtaData([]);
+                setStopErrorCount(0);
+                setLoading(true);
+
+                if (!route.trim()) {
+                    setError('請輸入巴士路線編號（例如 1）。');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    // 步驟 1：驗證路線
+                    const routeUrl = `https://data.etabus.gov.hk/v1/transport/kmb/route/${route}/${direction}/1`;
+                    console.log('正在獲取路線:', routeUrl);
+                    const routeResult = await fetchWithRetry(routeUrl);
+
+                    if (routeResult.data && routeResult.type === 'Route') {
+                        // 步驟 2：嘗試多個服務類型
+                        const serviceTypes = [1, 2, 3]; // 嘗試服務類型 1, 2, 3
+                        let etaResult = null;
+                        let validServiceType = null;
+
+                        for (const serviceType of serviceTypes) {
+                            const etaUrl = `https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${route}/${serviceType}`;
+                            console.log(`正在獲取 ETA（服務類型 ${serviceType}）:`, etaUrl);
+                            try {
+                                const result = await fetchWithRetry(etaUrl);
+                                console.log(`原始 ETA 響應（服務類型 ${serviceType}）:`, result.data);
+                                if (result.data && result.type === 'RouteETA' && result.data.length > 0) {
+                                    etaResult = result;
+                                    validServiceType = serviceType;
+                                    break;
+                                }
+                            } catch (err) {
+                                console.warn(`服務類型 ${serviceType} 獲取 ETA 失敗:`, err);
+                            }
+                        }
+
+                        if (etaResult && validServiceType) {
+                            // 步驟 3：驗證站點 ID
+                            const stopIds = [...new Set(etaResult.data.map(item => item.stop || item.stop_id))].filter(id => id);
+                            console.log('從 ETA 獲取的站點 ID:', stopIds);
+
+                            if (stopIds.length === 0) {
+                                console.warn('ETA 數據中無有效站點 ID，嘗試使用 Route-Stop API。');
+                                // 備用：從 Route-Stop API 獲取站點 ID
+                                const routeStopUrl = `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${route}/${direction}/${validServiceType}`;
+                                console.log('正在獲取路線-站點:', routeStopUrl);
+                                const routeStopResult = await fetchWithRetry(routeStopUrl);
+                                console.log('原始 Route-Stop 響應:', routeStopResult.data);
+
+                                if (routeStopResult.data && routeStopResult.type === 'RouteStop') {
+                                    const fallbackStopIds = routeStopResult.data.map(item => item.stop || item.stop_id).filter(id => id);
+                                    console.log('備用站點 ID:', fallbackStopIds);
+                                    if (fallbackStopIds.length === 0) {
+                                        setError('此路線無可用站點 ID。API 可能返回不完整數據。');
+                                        setLoading(false);
+                                        return;
+                                    }
+                                    await fetchStopDetails(fallbackStopIds, etaResult.data, routeStopResult.data);
+                                } else {
+                                    setError('無法從 Route-Stop API 獲取站點 ID。請稍後重試。');
+                                    setLoading(false);
+                                    return;
+                                }
+                            } else {
+                                await fetchStopDetails(stopIds, etaResult.data, []);
+                            }
+                        } else {
+                            setError('此路線無可用 ETA 數據。請嘗試其他路線或方向。');
+                        }
+                    } else {
+                        setError('無效的路線編號或方向。請檢查後重試。');
+                    }
+                } catch (err) {
+                    console.error('獲取錯誤:', err);
+                    let errorMessage = '無法獲取數據。';
+                    if (err.message.includes('HTTP error')) {
+                        errorMessage += `伺服器回應：${err.message}。`;
+                    } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+                        errorMessage += '可能是網絡問題或 CORS 限制。請嘗試其他網絡或聯繫 API 提供者。';
+                    } else {
+                        errorMessage += '請稍後重試。';
+                    }
+                    setError(errorMessage);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const fetchStopDetails = async (stopIds, etaData, routeStopData) => {
+                let failedStops = 0;
+                const stopDetails = await Promise.all(
+                    stopIds.map(async (stopId) => {
+                        if (stopCache.current[stopId]) {
+                            console.log(`使用快取的站點數據：${stopId}`);
+                            return stopCache.current[stopId];
+                        }
+                        const stopUrl = `https://data.etabus.gov.hk/v1/transport/kmb/stop/${stopId}`;
+                        try {
+                            console.log(`正在獲取站點：${stopUrl}`);
+                            const stopResult = await fetchWithRetry(stopUrl);
+                            if (stopResult.data && stopResult.type === 'Stop') {
+                                stopCache.current[stopId] = stopResult.data;
+                                return stopResult.data;
+                            } else {
+                                failedStops++;
+                                console.warn(`無效的站點數據：${stopId}:`, stopResult);
+                                return { stop: stopId, name_en: `Stop ID: ${stopId}`, name_tc: `站ID: ${stopId}` };
+                            }
+                        } catch (err) {
+                            failedStops++;
+                            console.error(`無法獲取站點 ${stopId}:`, err);
+                            return { stop: stopId, name_en: `Stop ID: ${stopId}`, name_tc: `站ID: ${stopId}` };
+                        }
+                    })
+                );
+
+                if (failedStops > 0) {
+                    setStopErrorCount(failedStops);
+                    setError(`無法獲取 ${failedStops} 個站點的詳細信息，顯示站點 ID 替代。可能是 API 問題或 CORS 限制。`);
+                }
+
+                const enrichedEtaData = etaData
+                    .map(eta => {
+                        const stopInfo = stopDetails.find(stop => stop.stop === (eta.stop || eta.stop_id)) || {
+                            stop: eta.stop || eta.stop_id || 'unknown',
+                            name_en: routeStopData.length > 0 ? `Stop ${eta.seq || 'unknown'}` : `Stop ID: ${eta.stop || eta.stop_id || 'unknown'}`,
+                            name_tc: routeStopData.length > 0 ? `站 ${eta.seq || '未知'}` : `站ID: ${eta.stop || eta.stop_id || '未知'}`
+                        };
+                        return {
+                            ...eta,
+                            stop_name_en: stopInfo.name_en,
+                            stop_name_tc: stopInfo.name_tc,
+                            seq: eta.seq || 999
+                        };
+                    })
+                    .filter(eta => eta.eta)
+                    .sort((a, b) => {
+                        if (a.seq === b.seq) {
+                            return new Date(a.eta) - new Date(b.eta);
+                        }
+                        return a.seq - b.seq;
+                    });
+
+                if (enrichedEtaData.length === 0) {
+                    setError('此路線無有效 ETA 數據。');
+                } else {
+                    setEtaData(enrichedEtaData);
+                }
+            };
+
+            return (
+                <div class="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+                    <h1 class="text-2xl font-bold mb-4 text-center">九巴 ETA 查詢</h1>
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                        <input
+                            type="text"
+                            value={route}
+                            onChange={(e) => setRoute(e.target.value.toUpperCase())}
+                            placeholder="輸入巴士路線（例如 1）"
+                            class="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <select
+                            value={direction}
+                            onChange={(e) => setDirection(e.target.value)}
+                            class="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="outbound">出城</option>
+                            <option value="inbound">入城</option>
+                        </select>
+                        <button
+                            onClick={fetchETA}
+                            disabled={loading}
+                            class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+                        >
+                            {loading ? '查詢中...' : '查詢 ETA'}
+                        </button>
+                    </div>
+
+                    {error && (
+                        <div class="bg-red-100 text-red-700 p-4 rounded mb-4">
+                            {error}
+                            <button
+                                onClick={fetchETA}
+                                class="ml-4 text-blue-600 underline hover:text-blue-800"
+                            >
+                                重試
+                            </button>
+                        </div>
+                    )}
+
+                    {etaData.length > 0 && (
+                        <div class="overflow-x-auto">
+                            <table class="w-full border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-200">
+                                        <th class="p-2 text-left">站點名稱（英文）</th>
+                                        <th class="p-2 text-left">站點名稱（中文）</th>
+                                        <th class="p-2 text-left">預計到達時間</th>
+                                        <th class="p-2 text-left">備註</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {etaData.map((eta, index) => (
+                                        <tr key={index} class="border-b">
+                                            <td class="p-2">{eta.stop_name_en}</td>
+                                            <td class="p-2">{eta.stop_name_tc}</td>
+                                            <td class="p-2">
+                                                {new Date(eta.eta).toLocaleTimeString('zh-HK', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                    hour12: false
+                                                })}
+                                            </td>
+                                            <td class="p-2">{eta.rmk_en || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // 使用錯誤邊界渲染
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <ErrorBoundary>
+                <BusETASearch />
+            </ErrorBoundary>
+        );
+    </script>
+</body>
+</html>
