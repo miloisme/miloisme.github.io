@@ -1,10 +1,5 @@
 # miloisme.github.io
 
-[![License](https://img.shields.io/github/license/miloisme/miloisme.github.io)](LICENSE)
-![Last Commit](https://img.shields.io/github/last-commit/miloisme/miloisme.github.io)
-![Repo Size](https://img.shields.io/github/repo-size/miloisme/miloisme.github.io)
-![Language](https://img.shields.io/github/languages/top/miloisme/miloisme.github.io)
-
 ## \weather (Simple Hong Kong Weather)
 This webpage displays weather information for Hong Kong. 
 
@@ -20,7 +15,3 @@ Provides a quick and responsive weather overview.
 ### Following websites are imbedded:
 
 - windy.com
-
-## License
-
-This project is licensed under the Apache License 2.0 License - see the [LICENSE](LICENSE) file for details.
