@@ -1,98 +1,23 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-HK">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>簡易香港天氣</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
-        #aqhi-map {
-            height: 400px;
-            width: 100%;
-        }
-        .info {
-            padding: 6px 8px;
-            font-size: 14px;
-            background: white;
-            border-radius: 5px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-        }
-        .legend {
-            line-height: 18px;
-            color: #555;
-        }
-        .legend i {
-            width: 18px;
-            height: 18px;
-            float: left;
-            margin-right: 8px;
-            opacity: 0.7;
-        }
-        .low { color: green; font-weight: bold; }
-        .moderate { color: orange; font-weight: bold; }
-        .high { color: red; font-weight: bold; }
-        .very-high { color: brown; font-weight: bold; }
-        .serious { color: black; font-weight: bold; }
-        .aqhi-value {
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
-            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-            text-align: center;
-            line-height: 24px;
-        }
-        .leaflet-control-attribution {
-            display: none;
-        }
+
         .windy-iframe {
             width: 100%;
             height: 300px;
         }
+
         @media (min-width: 768px) {
             .windy-iframe {
                 height: 450px;
@@ -100,6 +25,7 @@
         }
     </style>
 </head>
+
 <body class="bg-sky-50 min-h-screen flex flex-col items-center p-4">
     <!-- Header -->
     <header class="bg-gradient-to-r from-blue-100 to-blue-200 w-full max-w-5xl mx-auto rounded-xl shadow-md py-6 mb-6">
@@ -107,9 +33,44 @@
         <h1 class="text-3xl font-bold text-gray-800 text-center">簡易香港天氣</h1>
     </header>
 
+
+
+
+
     <!-- Main Content -->
     <div class="w-full max-w-5xl mx-auto space-y-6">
-        <!-- Part 1: Current Weather and Warnings -->
+
+        <div class="mt-4 max-w-5xl mx-auto bg-white rounded-xl shadow-md p-4">
+            <div class="grid grid-cols-5 gap-0">
+                <div class="flex flex-col items-center">
+                    <span class="mb-1 text-gray-700 font-medium text-center">中環(維港)</span>
+                    <img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/cp1/latest_CP1.jpg" alt="中環(維港)"
+                        class="w-full object-contain" />
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="mb-1 text-gray-700 font-medium text-center">太平山向東</span>
+                    <img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/vpa/latest_VPA.jpg" alt="太平山向東"
+                        class="w-full object-contain" />
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="mb-1 text-gray-700 font-medium text-center">尖沙咀</span>
+                    <img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/hk2/latest_HK2.jpg" alt="尖沙咀"
+                        class="w-full object-contain" />
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="mb-1 text-gray-700 font-medium text-center">長洲</span>
+                    <img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/cch/latest_CCH.jpg" alt="長洲"
+                        class="w-full object-contain" />
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="mb-1 text-gray-700 font-medium text-center">上水(風采中學)</span>
+                    <img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/elc/latest_ELC.jpg" alt="上水(風采中學)"
+                        class="w-full object-contain" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Weather and Warnings -->
         <div id="current-weather" class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div id="current-status" class="bg-white rounded-xl shadow-md p-6">
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣狀態</h2>
@@ -117,121 +78,140 @@
                 <p id="humidity" class="text-gray-700"><span class="font-semibold">現時濕度:</span> 載入中...</p>
                 <p id="uv-index" class="text-gray-700"><span class="font-semibold">紫外綫指數:</span> 載入中...</p>
                 <p id="local-forecast" class="text-gray-700"><span class="font-semibold">本港預報:</span> 載入中...</p>
-                <img id="weather-icon" class="w-12 h-12 rounded-full p-2 bg-blue-50 mt-4" alt="Weather Icon">
             </div>
             <div id="warnings" class="bg-amber-50 rounded-xl shadow-md p-6">
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣警告</h2>
-                <div id="warnings-data" class="space-y-2"></div>
+                <span class="text-sm text-blue-600 ml-2">點擊圖標查看詳情</span>
+                <div id="warnings-data" class="flex flex-wrap gap-4"></div>
             </div>
         </div>
 
-        <!-- Part 2: 9-Day Weather Forecast with Chart -->
+        <!-- Forecast -->
         <div id="forecast" class="bg-white rounded-xl shadow-md p-6">
             <div class="flex items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-800">九天天氣預報</h2>
                 <span class="text-sm text-blue-600 ml-2">點擊圖表查看詳情</span>
             </div>
-            <canvas id="tempChart" class="w-full h-64 cursor-pointer transform hover:scale-[1.02] transition-transform duration-200"></canvas>
+            <canvas id="tempChart"
+                class="w-full h-64 cursor-pointer transform hover:scale-[1.02] transition-transform duration-200"></canvas>
         </div>
 
-        <!-- Part 3: AQHI Map -->
-        <div id="aqhi" class="bg-white rounded-xl shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">香港空氣質素健康指數（AQHI）</h2>
-            <div id="aqhi-map"></div>
-            <p id="aqhi-error" class="text-red-500 text-center mt-4"></p>
-        </div>
-
-        <!-- Part 4: Windy.com Radar and Gust Maps -->
+        <!-- Windy Maps -->
         <div id="windy-maps" class="bg-white rounded-xl shadow-md p-6">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣雷達與陣風地圖</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雷達地圖</h3>
-                    <iframe class="windy-iframe" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=m/s&zoom=5&overlay=radar&product=radar&level=surface&lat=24.012&lon=114.293" frameborder="0"></iframe>
+                    <iframe class="windy-iframe" loading="lazy"
+                        src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=default&zoom=8&overlay=radar&product=radar&level=surface&lat=22.264&lon=114.137"
+                        frameborder="0"></iframe>
                 </div>
                 <div>
                     <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">陣風地圖</h3>
-                    <iframe class="windy-iframe" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=m/s&zoom=5&overlay=gust&product=ecmwf&level=surface&lat=18.563&lon=114.302" frameborder="0"></iframe>
+                    <iframe class="windy-iframe" loading="lazy"
+                        src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=m/s&zoom=5&overlay=gust&product=ecmwf&level=surface&lat=18.563&lon=114.302"
+                        frameborder="0"></iframe>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal for Detailed Forecast -->
-    <div id="forecast-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity duration-300">
-        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">詳細九天天氣預報</h2>
-            <div id="forecast-data" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-            <button id="close-modal" class="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200">關閉</button>
+    <!-- Warning Modal -->
+    <div id="warning-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg max-h-[80vh] overflow-y-auto relative">
+            <button id="close-warning-modal"
+                class="absolute top-4 right-4 text-gray-600 hover:text-gray-900 text-2xl font-bold">&times;</button>
+            <h2 id="warning-title" class="text-xl font-bold text-gray-800 mb-4"></h2>
+            <p id="warning-update-time" class="text-sm text-gray-600 mb-2"></p>
+            <div id="warning-content" class="text-gray-700 whitespace-pre-wrap"></div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="bg-gray-50 w-full mt-6 border-t border-gray-200">
-        <p class="text-sm font-medium text-gray-600 text-center py-4">數據來源自香港天文台、香港環境保護署及 Windy.com，本網頁正在測試中</p>
-        <p class="text-sm font-medium text-gray-600 text-center py-4">© miloisme.github.io</p>
-    </footer>
+    <!-- Forecast Modal -->
+    <div id="forecast-modal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity duration-300 z-40">
+        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-4xl max-h-[80vh] overflow-y-auto relative">
+            <button id="close-modal"
+                class="absolute top-4 right-4 text-gray-600 hover:text-gray-900 text-2xl font-bold">&times;</button>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">詳細九天天氣預報</h2>
+            <div id="forecast-data" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+        </div>
+    </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- JavaScript -->
     <script>
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-
         let forecastData = [];
+        const iconMap = {
+            "WTS": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/ts.issuing.gif",
+            "WHOT": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/vhot.issuing.gif",
+            "WRAINA": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/raina.issuing.gif",
+            "WRAINR": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/rainr.issuing.gif",
+            "WRAINB": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/rainb_issuing.gif",
+            "TC1": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc1_issuing.gif",
+            "TC3": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc3_issuing.gif",
+            "TC8NE": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8ne_issuing.gif",
+            "TC8SE": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8se_issuing.gif",
+            "TC8SW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8sw_issuing.gif",
+            "TC8NW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8nw_issuing.gif",
+            "TC9": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc9_issuing.gif",
+            "TC10": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc10_issuing.gif",
+            "WCOLD": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/cold_issuing.gif",
+            "WFROST": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/frost_issuing.gif",
+            "WFIREY": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/firey_issuing.gif",
+            "WFIRER": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/firer_issuing.gif",
+            "WL": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/landslip_issuing.gif",
+            "WFNTSA": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/ntfl_issuing.gif",
+            "WTMW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tsunami-warn_issuing.gif",
+            "CANCEL": ""
+        };
+
+        const subtypeMap = {
+            "WFIRE": "火災危險警告",
+            "WFIREY": "黃色火災危險警告",
+            "WFIRER": "紅色火災危險警告",
+            "WFROST": "霜凍警告",
+            "WHOT": "酷熱天氣警告",
+            "WCOLD": "寒冷天氣警告",
+            "WMSGNL": "強烈季候風信號",
+            "WTCPRE8": "八號熱帶氣旋預警特別報告",
+            "WTCSGNL": "熱帶氣旋警告信號",
+            "TC1": "一號戒備信號",
+            "TC3": "三號強風信號",
+            "TC8NE": "八號東北烈風信號",
+            "TC8SE": "八號東南烈風信號",
+            "TC8SW": "八號西南烈風信號",
+            "TC8NW": "八號西北烈風信號",
+            "TC9": "九號烈風增強信號",
+            "TC10": "十號颶風信號",
+            "CANCEL": "所有熱帶氣旋警告取消",
+            "WRAIN": "暴雨警告",
+            "WRAINA": "黃色暴雨警告",
+            "WRAINR": "紅色暴雨警告",
+            "WRAINB": "黑色暴雨警告",
+            "WFNTSA": "新界北水浸特別報告",
+            "WL": "山泥傾瀉警告",
+            "WTMW": "海嘯警告",
+            "WTS": "雷暴警告"
+        };
 
         function fetchCurrentWeather() {
             $.ajax({
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc',
                 method: 'GET',
                 dataType: 'json',
-                success: function(data) {
+                success: function (data) {
                     const temp = data.temperature.data[0];
                     $('#temperature').html(`<span class="font-semibold">現時氣溫:</span> ${temp.value}°${temp.unit}`);
                     const humidity = data.humidity.data[0];
                     $('#humidity').html(`<span class="font-semibold">現時濕度:</span> ${humidity.value}%`);
-                    const icon = data.icon[0];
-                    $('#weather-icon').attr('src', `https://www.hko.gov.hk/images/HKOWxIconOutline/pic${icon}.png`);
-                    if (data.uvindex && data.uvindex.data && data.uvindex.data.length > 0) {
-                        const uvData = data.uvindex.data[0];
-                        const uvValue = uvData.value !== undefined ? uvData.value : 'N/A';
-                        const uvDesc = uvData.desc || 'N/A';
-                        $('#uv-index').html(`<span class="font-semibold">紫外綫指數:</span> ${uvValue} (${uvDesc})`);
+                    if (data.uvindex?.data?.length > 0) {
+                        const uv = data.uvindex.data[0];
+                        $('#uv-index').html(`<span class="font-semibold">紫外綫指數:</span> ${uv.value} (${uv.desc || ''})`);
                     } else {
-                        $('#uv-index').html('<span class="font-semibold">紫外綫指數:</span> <span class="text-red-500">無法載入紫外綫資料</span>');
+                        $('#uv-index').html('<span class="font-semibold">紫外綫指數:</span> <span class="text-red-500">無法載入/現時不適用</span>');
                     }
                 },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error('Current Weather API Error:', textStatus, errorThrown);
-                    $('#current-status').html('<p class="text-red-500">無法載入當前天氣</p>');
-                }
+                error: () => $('#current-status').html('<p class="text-red-500">無法載入當前天氣</p>')
             });
         }
 
@@ -240,21 +220,11 @@
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=tc',
                 method: 'GET',
                 dataType: 'json',
-                success: function(data) {
-                    const generalSituation = data.generalSituation || '';
-                    const forecastPeriod = data.forecastPeriod || '';
-                    const forecastDesc = data.forecastDesc || '';
-                    const outlook = data.outlook || '';
-                    let combinedForecast = 'N/A';
-                    if (generalSituation || forecastPeriod || forecastDesc || outlook) {
-                        combinedForecast = `${generalSituation}${forecastPeriod}${forecastDesc}${outlook}`;
-                    }
-                    $('#local-forecast').html(`<span class="font-semibold">本港預報:</span> ${combinedForecast}`);
+                success: function (data) {
+                    const text = [data.generalSituation, data.forecastPeriod, data.forecastDesc, data.outlook].join('');
+                    $('#local-forecast').html(`<span class="font-semibold">本港預報:</span> ${text || 'N/A'}`);
                 },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    console.error('Local Forecast API Error:', textStatus, errorThrown);
-                    $('#local-forecast').html('<p class="text-red-500">無法載入本港預報</p>');
-                }
+                error: () => $('#local-forecast').html('<p class="text-red-500">無法載入預報</p>')
             });
         }
 
@@ -263,41 +233,55 @@
                 url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc',
                 method: 'GET',
                 dataType: 'json',
-                success: function(data) {
+                success: function (data) {
                     forecastData = data.weatherForecast;
                     renderForecastChart();
                     populateForecastModal();
-                },
-                error: function() {
-                    console.error('9-Day Forecast API Error');
                 }
             });
         }
 
         function fetchWarnings() {
             $.ajax({
-                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc',
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=tc',
                 method: 'GET',
                 dataType: 'json',
-                success: function(data) {
+                success: function (data) {
                     $('#warnings-data').empty();
-                    for (const [code, warning] of Object.entries(data)) {
-                        if (warning.name) {
-                            const warningHtml = `
-                                <div class="bg-amber-100 p-2 rounded-lg hover:bg-amber-200 transition duration-200">
-                                    <p class="font-semibold">${warning.name}</p>
-                                    <p class="text-sm text-gray-600">發出: ${warning.issueTime}</p>
-                                </div>`;
-                            $('#warnings-data').append(warningHtml);
-                        }
-                    }
-                    if ($('#warnings-data').is(':empty')) {
+                    const details = data.details || [];
+                    if (details.length === 0) {
                         $('#warnings-data').html('<p class="text-gray-600">目前無天氣警告</p>');
+                        return;
                     }
+
+                    details.forEach((w) => {
+                        const code = w.subtype || w.warningStatementCode;
+                        const iconSrc = iconMap[code];
+                        if (!iconSrc) return;
+
+                        const name = subtypeMap[code] || code;
+                        const time = new Date(w.updateTime).toLocaleString('zh-HK', { hour12: false });
+                        const content = w.contents?.join('\n') || "無詳細內容";
+
+                        const $img = $(`
+                            <img src="${iconSrc}" alt="${name}" title="${name}" class="w-12 h-12 cursor-pointer rounded-md shadow-md hover:scale-110 transition-transform"
+                                data-name="${name}"
+                                data-time="${time}"
+                                data-content="${content}"
+                            />
+                        `);
+
+                        $img.on('click', function () {
+                            $('#warning-title').text($(this).data('name'));
+                            $('#warning-update-time').text('更新時間: ' + $(this).data('time'));
+                            $('#warning-content').text($(this).data('content'));
+                            $('#warning-modal').removeClass('hidden');
+                        });
+
+                        $('#warnings-data').append($img);
+                    });
                 },
-                error: function() {
-                    $('#warnings-data').html('<p class="text-red-500">無法載入天氣警告</p>');
-                }
+                error: () => $('#warnings-data').html('<p class="text-red-500">無法載入天氣警告</p>')
             });
         }
 
@@ -307,7 +291,9 @@
             const maxTemps = forecastData.map(f => f.forecastMaxtemp.value);
             const minTemps = forecastData.map(f => f.forecastMintemp.value);
 
-            new Chart(ctx, {
+            if (window.tempChartInstance) window.tempChartInstance.destroy();
+
+            window.tempChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: dates,
@@ -333,18 +319,11 @@
                 options: {
                     responsive: true,
                     scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: { display: true, text: '溫度 (°C)', color: '#4B5563' }
-                        },
-                        x: {
-                            title: { display: true, text: '日期', color: '#4B5563' }
-                        }
+                        y: { beginAtZero: false, title: { display: true, text: '溫度 (°C)' } },
+                        x: { title: { display: true, text: '日期' } }
                     },
                     plugins: {
-                        legend: {
-                            labels: { color: '#4B5563' }
-                        }
+                        legend: { labels: { color: '#4B5563' } }
                     }
                 }
             });
@@ -352,158 +331,37 @@
 
         function populateForecastModal() {
             $('#forecast-data').empty();
-            forecastData.forEach(forecast => {
-                const forecastHtml = `
+            forecastData.forEach(f => {
+                const html = `
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <p class="text-gray-700"><span class="font-semibold">日期:</span> ${forecast.forecastDate}</p>
-                        <p class="text-gray-700"><span class="font-semibold">星期:</span> ${forecast.week}</p>
-                        <p class="text-gray-700"><span class="font-semibold">天氣:</span> ${forecast.forecastWeather}</p>
-                        <p class="text-gray-700"><span class="font-semibold">最高溫度:</span> ${forecast.forecastMaxtemp.value}°${forecast.forecastMaxtemp.unit}</p>
-                        <p class="text-gray-700"><span class="font-semibold">最低溫度:</span> ${forecast.forecastMintemp.value}°${forecast.forecastMintemp.unit}</p>
-                        <p class="text-gray-700"><span class="font-semibold">降雨概率:</span> ${forecast.PSR}</p>
-                        <p class="text-gray-700"><span class="font-semibold">風向風速:</span> ${forecast.forecastWind}</p>
-                        <p class="text-gray-700"><span class="font-semibold">相對濕度:</span> ${forecast.forecastMinrh.value}% - ${forecast.forecastMaxrh.value}%</p>
-                        <img src="https://www.hko.gov.hk/images/HKOWxIconOutline/pic${forecast.ForecastIcon}.png" alt="Weather Icon" class="w-12 h-12 mt-2">
-                    </div>`;
-                $('#forecast-data').append(forecastHtml);
+                        <h3 class="font-semibold mb-2">${f.forecastDate} (${f.week})</h3>
+                        <p>最高氣溫: ${f.forecastMaxtemp.value}°C</p>
+                        <p>最低氣溫: ${f.forecastMintemp.value}°C</p>
+                        <p>預報: ${f.forecastWeather}</p>
+                    </div>
+                `;
+                $('#forecast-data').append(html);
             });
         }
 
-        function initAqhiMap() {
-            const map = L.map('aqhi-map', {
-                attributionControl: false
-            }).setView([22.3193, 114.1694], 11);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-            const districts = {
-                "中西區": [22.2799, 114.1474],
-                "南區": [22.2432, 114.1974],
-                "東區": [22.2798, 114.2241],
-                "觀塘": [22.3129, 114.2258],
-                "深水埗": [22.3331, 114.1628],
-                "葵涌": [22.3639, 114.1394],
-                "荃灣": [22.3683, 114.1241],
-                "將軍澳": [22.3080, 114.2586],
-                "元朗": [22.4445, 114.0222],
-                "屯門": [22.3916, 113.9751],
-                "東涌": [22.2894, 113.9441],
-                "大埔": [22.4457, 114.1687],
-                "沙田": [22.3871, 114.1954],
-                "北區": [22.4947, 114.1381],
-                "塔門": [22.4978, 114.3557]
-            };
-
-            const proxyUrl = "https://api.allorigins.win/raw?url=";
-            const targetUrl = "https://www.aqhi.gov.hk/epd/ddata/html/out/aqhi_ind_rss_ChT.xml";
-
-            fetch(proxyUrl + encodeURIComponent(targetUrl))
-                .then(response => response.text())
-                .then(str => {
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(str, "application/xml");
-                    const items = xml.querySelectorAll("item");
-
-                    items.forEach(item => {
-                        const title = item.querySelector("title").textContent;
-                        const [district, index, level] = title.split(" : ");
-                        if (districts[district]) {
-                            const [lat, lng] = districts[district];
-                            let levelClass = "low";
-                            let color = 'green';
-
-                            if (level.includes("中")) {
-                                levelClass = "moderate";
-                                color = 'orange';
-                            } else if (level.includes("甚高")) {
-                                levelClass = "very-high";
-                                color = 'brown';
-                            } else if (level.includes("嚴重")) {
-                                levelClass = "serious";
-                                color = 'black';
-                            } else if (level.includes("高")) {
-                                levelClass = "high";
-                                color = 'red';
-                            }
-
-                            L.circleMarker([lat, lng], {
-                                radius: 12,
-                                fillColor: color,
-                                color: '#000',
-                                weight: 1,
-                                opacity: 1,
-                                fillOpacity: 0.8
-                            }).addTo(map)
-                                .bindPopup(`
-                                    <b>${district}</b><br>
-                                    指數: ${index}<br>
-                                    風險級別: <span class="${levelClass}">${level}</span>
-                                `);
-
-                            L.marker([lat, lng], {
-                                icon: L.divIcon({
-                                    className: 'aqhi-value',
-                                    html: index,
-                                    iconSize: [24, 24],
-                                    iconAnchor: [12, 12]
-                                })
-                            }).addTo(map)
-                                .bindPopup(`
-                                    <b>${district}</b><br>
-                                    指數: ${index}<br>
-                                    風險級別: <span class="${levelClass}">${level}</span>
-                                `);
-                        }
-                    });
-
-                    const legend = L.control({position: 'bottomright'});
-                    legend.onAdd = function (map) {
-                        const div = L.DomUtil.create('div', 'info legend');
-                        const grades = [
-                            {label: '低', color: 'green'},
-                            {label: '中', color: 'orange'},
-                            {label: '高', color: 'red'},
-                            {label: '甚高', color: 'brown'},
-                            {label: '嚴重', color: 'black'}
-                        ];
-                        grades.forEach(grade => {
-                            div.innerHTML +=
-                                `<i style="background:${grade.color}"></i> ${grade.label}<br>`;
-                        });
-                        return div;
-                    };
-                    legend.addTo(map);
-                })
-                .catch(err => {
-                    console.error("💥 錯誤：", err);
-                    document.getElementById('aqhi-error').textContent = "❌ 無法載入資料（可能是 Proxy 被封鎖）。";
-                });
-        }
-
-
-        $('#tempChart').click(function() {
-            $('#forecast-modal').removeClass('hidden').addClass('opacity-100');
+        $('#tempChart').on('click', () => {
+            $('#forecast-modal').removeClass('hidden');
         });
 
-        $('#forecast-modal').click(function(e) {
-            if (e.target.id === 'forecast-modal') {
-                $('#forecast-modal').addClass('hidden').removeClass('opacity-100');
-            }
+        $('#close-warning-modal').on('click', () => {
+            $('#warning-modal').addClass('hidden');
+        });
+        $('#close-modal').on('click', () => {
+            $('#forecast-modal').addClass('hidden');
         });
 
-        $('#close-modal').click(function() {
-            $('#forecast-modal').addClass('hidden').removeClass('opacity-100');
-        });
-
-        $(document).ready(function() {
+        $(document).ready(() => {
             fetchCurrentWeather();
             fetchLocalForecast();
             fetchTodayTempRange();
             fetchWarnings();
-            initAqhiMap();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932c3eb72bb8453d',t:'MTc0NTA2NDA2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9330ec3ace5844de',t:'MTc0NTExMzExMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
+
 </html>
