@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="zh-HK">
 
 <head>
@@ -23,6 +62,17 @@
                 height: 450px;
             }
         }
+
+        #special-weather-modal {
+            z-index: 60;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        marquee {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+        }
     </style>
 </head>
 
@@ -33,9 +83,11 @@
         <h1 class="text-3xl font-bold text-gray-800 text-center">簡易香港天氣</h1>
     </header>
 
-
-
-
+    <!-- Special Weather Marquee -->
+    <div id="special-weather-marquee" class="w-full max-w-5xl mx-auto bg-amber-50 rounded-xl shadow-md p-4 mb-6 hidden">
+        <h2 class="text-lg font-semibold text-gray-800 mb-2">特別天氣提示</h2>
+        <div id="marquee-content"></div>
+    </div>
 
     <!-- Main Content -->
     <div class="w-full max-w-5xl mx-auto space-y-6">
@@ -127,6 +179,16 @@
         </div>
     </div>
 
+    <!-- Special Weather Modal -->
+    <div id="special-weather-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+        <div class="bg-white rounded-xl shadow-xl p-4 w-full max-w-md max-h-[70vh] overflow-y-auto relative">
+            <button id="close-special-weather-modal"
+                class="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold">&times;</button>
+            <h2 id="special-weather-title" class="text-lg font-bold text-gray-800 mb-2">特別天氣提示</h2>
+            <div id="special-weather-content" class="text-base text-gray-700 whitespace-pre-wrap"></div>
+        </div>
+    </div>
+
     <!-- Forecast Modal -->
     <div id="forecast-modal"
         class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity duration-300 z-40">
@@ -146,22 +208,22 @@
             "WHOT": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/vhot.issuing.gif",
             "WRAINA": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/raina.issuing.gif",
             "WRAINR": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/rainr.issuing.gif",
-            "WRAINB": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/rainb.issuing.gif",
-            "TC1": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc1.issuing.gif",
-            "TC3": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc3.issuing.gif",
-            "TC8NE": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8ne.issuing.gif",
-            "TC8SE": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8se.issuing.gif",
-            "TC8SW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8sw.issuing.gif",
-            "TC8NW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8nw.issuing.gif",
-            "TC9": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc9.issuing.gif",
-            "TC10": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc10.issuing.gif",
-            "WCOLD": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/cold.issuing.gif",
-            "WFROST": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/frost.issuing.gif",
-            "WFIREY": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/firey.issuing.gif",
-            "WFIRER": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/firer.issuing.gif",
-            "WL": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/landslip.issuing.gif",
-            "WFNTSA": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/ntfl.issuing.gif",
-            "WTMW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tsunami-warn.issuing.gif",
+            "WRAINB": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/rainb_issuing.gif",
+            "TC1": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc1_issuing.gif",
+            "TC3": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc3_issuing.gif",
+            "TC8NE": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8ne_issuing.gif",
+            "TC8SE": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8se_issuing.gif",
+            "TC8SW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8sw_issuing.gif",
+            "TC8NW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc8nw_issuing.gif",
+            "TC9": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc9_issuing.gif",
+            "TC10": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tc10_issuing.gif",
+            "WCOLD": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/cold_issuing.gif",
+            "WFROST": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/frost_issuing.gif",
+            "WFIREY": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/firey_issuing.gif",
+            "WFIRER": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/firer_issuing.gif",
+            "WL": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/landslip_issuing.gif",
+            "WFNTSA": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/ntfl_issuing.gif",
+            "WTMW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tsunami-warn_issuing.gif",
             "CANCEL": ""
         };
 
@@ -285,6 +347,51 @@
             });
         }
 
+        function fetchSpecialWeatherTips() {
+            $.ajax({
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=swt&lang=tc',
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    const swt = data.swt || [];
+                    if (swt.length === 0) {
+                        $('#special-weather-marquee').addClass('hidden');
+                        return;
+                    }
+
+                    // Populate modal content
+                    let modalContentHtml = '';
+                    swt.forEach((tip, index) => {
+                        const desc = tip.desc;
+                        const updateTime = new Date(tip.updateTime).toLocaleString('zh-HK', { hour12: false });
+                        modalContentHtml += `<span class="text-sm text-gray-600">${updateTime}</span><br><span class="text-base text-gray-700">${desc}</span>`;
+                        if (index < swt.length - 1) {
+                            modalContentHtml += '<br>';
+                        }
+                    });
+
+                    $('#special-weather-content').html(modalContentHtml);
+                    $('#special-weather-title').text('特別天氣提示');
+                    $('#special-weather-modal').removeClass('hidden');
+
+                    // Populate marquee content
+                    let marqueeContentHtml = '';
+                    swt.forEach((tip) => {
+                        const desc = tip.desc;
+                        const updateTime = new Date(tip.updateTime).toLocaleString('zh-HK', { hour12: false });
+                        marqueeContentHtml += `<marquee class="text-base text-gray-700 py-1" direction="left" scrollamount="4">${updateTime} - ${desc}</marquee>`;
+                    });
+
+                    $('#marquee-content').html(marqueeContentHtml);
+                    $('#special-weather-marquee').removeClass('hidden');
+                },
+                error: () => {
+                    console.log('無法載入特別天氣提示');
+                    $('#special-weather-marquee').addClass('hidden');
+                }
+            });
+        }
+
         function renderForecastChart() {
             const ctx = document.getElementById('tempChart').getContext('2d');
             const dates = forecastData.map(f => f.forecastDate);
@@ -351,6 +458,11 @@
         $('#close-warning-modal').on('click', () => {
             $('#warning-modal').addClass('hidden');
         });
+
+        $('#close-special-weather-modal').on('click', () => {
+            $('#special-weather-modal').addClass('hidden');
+        });
+
         $('#close-modal').on('click', () => {
             $('#forecast-modal').addClass('hidden');
         });
@@ -360,6 +472,7 @@
             fetchLocalForecast();
             fetchTodayTempRange();
             fetchWarnings();
+            fetchSpecialWeatherTips();
         });
     </script>
 </body>
