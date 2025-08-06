@@ -1,43 +1,3 @@
-<script type="text/javascript">
-    var gk_isXlsx = false;
-    var gk_xlsxFileLookup = {};
-    var gk_fileData = {};
-    function filledCell(cell) {
-        return cell !== '' && cell != null;
-    }
-    function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                    row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                    headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-    }
-</script>
 <!DOCTYPE html>
 <html lang="zh-HK">
 
@@ -48,6 +8,46 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+            return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+            if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+                try {
+                    var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                    var firstSheetName = workbook.SheetNames[0];
+                    var worksheet = workbook.Sheets[firstSheetName];
+
+                    // Convert sheet to JSON to filter blank rows
+                    var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                    // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                    var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                    // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                    var headerRowIndex = filteredData.findIndex((row, index) =>
+                        row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                    );
+                    // Fallback
+                    if (headerRowIndex === -1 || headerRowIndex > 25) {
+                        headerRowIndex = 0;
+                    }
+
+                    // Convert filtered JSON back to CSV
+                    var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                    csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                    return csv;
+                } catch (e) {
+                    console.error(e);
+                    return "";
+                }
+            }
+            return gk_fileData[filename] || "";
+        }
+    </script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -154,7 +154,7 @@
             <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣雷達與地圖</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雷達地圖 (香港天文台256km雷達圖)</h3>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雷達地圖</h3>
                     <img src="https://pda.weather.gov.hk/radar/rad_256_320/rad256_6.jpg" width="100%">
                 </div>
                 <div>
@@ -471,10 +471,15 @@
             $('#forecast-modal').addClass('hidden');
         });
 
-        function getRainfallMapUrl() {
+        function getRainfallMapUrl(offsetHours = 0) {
             // Get current time in Hong Kong (HKT)
             const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
             const date = new Date(now);
+
+            // Subtract hours if offset is provided
+            if (offsetHours !== 0) {
+                date.setHours(date.getHours() - offsetHours);
+            }
 
             // Format date and time as YYYYMMDDHHMM
             const year = date.getFullYear();
@@ -487,9 +492,25 @@
             return `https://www.hko.gov.hk/wxinfo/rainfall/cokrig_barnes/rfmap${formattedDateTime}c.png`;
         }
 
-        function updateRainfallMap() {
+        function updateRainfallMap(attemptPreviousHour = false) {
             const rainfallMap = $('#rainfall-map');
-            rainfallMap.attr('src', getRainfallMapUrl());
+            const url = getRainfallMapUrl(attemptPreviousHour ? 1 : 0);
+            rainfallMap.attr('src', url);
+
+            // Handle image load error
+            rainfallMap.off('error').on('error', function () {
+                if (!attemptPreviousHour) {
+                    // Try previous hour's image
+                    updateRainfallMap(true);
+                } else {
+                    // If previous hour also fails, set a fallback message or placeholder
+                    rainfallMap.attr('src', '');
+                    rainfallMap.after('<p class="text-red-500 text-center">無法載入雨量圖</p>');
+                }
+            });
+
+            // Remove any previous error messages
+            rainfallMap.siblings('.text-red-500').remove();
         }
 
         $(document).ready(() => {
