@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add Leaflet CSS for rainfall map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script type="text/javascript">
         var gk_isXlsx = false;
         var gk_xlsxFileLookup = {};
@@ -21,23 +23,15 @@
                     var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
                     var firstSheetName = workbook.SheetNames[0];
                     var worksheet = workbook.Sheets[firstSheetName];
-
-                    // Convert sheet to JSON to filter blank rows
                     var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                    // Filter out blank rows (rows where all cells are empty, null, or undefined)
                     var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                    // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
                     var headerRowIndex = filteredData.findIndex((row, index) =>
                         row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
                     );
-                    // Fallback
                     if (headerRowIndex === -1 || headerRowIndex > 25) {
                         headerRowIndex = 0;
                     }
-
-                    // Convert filtered JSON back to CSV
-                    var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                    var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
                     csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
                     return csv;
                 } catch (e) {
@@ -74,6 +68,51 @@
             white-space: nowrap;
             overflow: hidden;
         }
+
+        /* Rainfall marker styles */
+        .rainfall-marker {
+            font-weight: bold;
+            font-size: 12px;
+            text-align: center;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            border: 1px solid black;
+        }
+
+        .rainfall-marker-zero {
+            background-color: white;
+            color: black;
+        }
+
+        .rainfall-marker-low {
+            background-color: #00cc00;
+            color: black;
+        }
+
+        .rainfall-marker-medium {
+            background-color: #ffff00;
+            color: black;
+        }
+
+        .rainfall-marker-high {
+            background-color: #ff0000;
+            color: black;
+        }
+
+        .rainfall-marker-extreme {
+            background-color: black;
+            color: white;
+        }
+
+        #map {
+            width: 100%;
+            height: 400px;
+            max-width: 5xl;
+            margin: auto;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 
@@ -92,7 +131,6 @@
 
     <!-- Main Content -->
     <div class="w-full max-w-5xl mx-auto space-y-6">
-
         <div class="mt-4 max-w-5xl mx-auto bg-white rounded-xl shadow-md p-4">
             <div class="grid grid-cols-5 gap-0">
                 <div class="flex flex-col items-center">
@@ -137,6 +175,12 @@
                 <span class="text-sm text-blue-600 ml-2">點擊圖標查看詳情</span>
                 <div id="warnings-data" class="flex flex-wrap gap-4"></div>
             </div>
+        </div>
+
+        <!-- Rainfall Map (New Section) -->
+        <div id="rainfall-map-section" class="bg-white rounded-xl shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">香港指定地區過去一小時雨量地圖</h2>
+            <div id="map" class="w-full max-w-5xl mx-auto shadow-sm"></div>
         </div>
 
         <!-- Forecast -->
@@ -205,6 +249,7 @@
     </div>
 
     <!-- JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let forecastData = [];
         const iconMap = {
@@ -230,7 +275,6 @@
             "WTMW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tsunami-warn.issuing.gif",
             "CANCEL": ""
         };
-
         const subtypeMap = {
             "WFIRE": "火災危險警告",
             "WFIREY": "黃色火災危險警告",
@@ -319,16 +363,13 @@
                         $('#warnings-data').html('<p class="text-gray-600">目前無天氣警告</p>');
                         return;
                     }
-
                     details.forEach((w) => {
                         const code = w.subtype || w.warningStatementCode;
                         const iconSrc = iconMap[code];
                         if (!iconSrc) return;
-
                         const name = subtypeMap[code] || code;
                         const time = new Date(w.updateTime).toLocaleString('zh-HK', { hour12: false });
                         const content = w.contents?.join('\n') || "無詳細內容";
-
                         const $img = $(`
                             <img src="${iconSrc}" alt="${name}" title="${name}" class="w-12 h-12 cursor-pointer rounded-md shadow-md hover:scale-110 transition-transform"
                                 data-name="${name}"
@@ -336,14 +377,12 @@
                                 data-content="${content}"
                             />
                         `);
-
                         $img.on('click', function () {
                             $('#warning-title').text($(this).data('name'));
                             $('#warning-update-time').text('更新時間: ' + $(this).data('time'));
                             $('#warning-content').text($(this).data('content'));
                             $('#warning-modal').removeClass('hidden');
                         });
-
                         $('#warnings-data').append($img);
                     });
                 },
@@ -362,8 +401,6 @@
                         $('#special-weather-marquee').addClass('hidden');
                         return;
                     }
-
-                    // Populate modal content
                     let modalContentHtml = '';
                     swt.forEach((tip, index) => {
                         const desc = tip.desc;
@@ -373,19 +410,15 @@
                             modalContentHtml += '<br>';
                         }
                     });
-
                     $('#special-weather-content').html(modalContentHtml);
                     $('#special-weather-title').text('特別天氣提示');
                     $('#special-weather-modal').removeClass('hidden');
-
-                    // Populate marquee content
                     let marqueeContentHtml = '';
                     swt.forEach((tip) => {
                         const desc = tip.desc;
                         const updateTime = new Date(tip.updateTime).toLocaleString('zh-HK', { hour12: false });
                         marqueeContentHtml += `<marquee class="text-base text-gray-700 py-1" direction="left" scrollamount="4">${updateTime} - ${desc}</marquee>`;
                     });
-
                     $('#marquee-content').html(marqueeContentHtml);
                     $('#special-weather-marquee').removeClass('hidden');
                 },
@@ -401,9 +434,7 @@
             const dates = forecastData.map(f => f.forecastDate);
             const maxTemps = forecastData.map(f => f.forecastMaxtemp.value);
             const minTemps = forecastData.map(f => f.forecastMintemp.value);
-
             if (window.tempChartInstance) window.tempChartInstance.destroy();
-
             window.tempChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -455,6 +486,89 @@
             });
         }
 
+        function fetchRainfallData() {
+            const map = L.map('map').setView([22.3193, 114.1694], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            const stationCoordinates = {
+                '上水': [22.505, 114.127],
+                '大埔墟': [22.444, 114.171],
+                '濕地公園': [22.467, 114.004],
+                '屯門': [22.391, 113.975],
+                '沙田': [22.402, 114.184],
+                '香港國際機場': [22.315, 113.936],
+                '昂坪': [22.263, 113.913],
+                '坪洲': [22.265, 114.038],
+                '長洲': [22.208, 114.029],
+                '橫瀾島': [22.186, 114.301],
+                '赤柱': [22.218, 114.210],
+                '黃竹坑': [22.247, 114.171],
+                '跑馬地': [22.268, 114.185],
+                '山頂': [22.265, 114.146],
+                '筲箕灣': [22.279, 114.228],
+                '清水灣': [22.285, 114.294],
+                '將軍澳': [22.317, 114.258],
+                '觀塘': [22.312, 114.223],
+                '尖沙咀': [22.302, 114.174],
+                '新蒲崗': [22.336, 114.195],
+                '深水埗': [22.333, 114.149],
+                '西貢': [22.382, 114.272],
+                '滘西洲': [22.371, 114.363],
+                '荃灣': [22.372, 114.138]
+            };
+            const allowedStations = Object.keys(stationCoordinates);
+            $.ajax({
+                url: 'https://data.weather.gov.hk/weatherAPI/opendata/hourlyRainfall.php?lang=tc',
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    data.hourlyRainfall.forEach(station => {
+                        let stationName = station.automaticWeatherStation;
+                        if (stationName === '香港天文台') {
+                            stationName = '尖沙咀';
+                        }
+                        if (allowedStations.includes(stationName)) {
+                            const coords = stationCoordinates[stationName];
+                            if (coords) {
+                                const rainfall = station.value === 'M' ? 'M' : station.value;
+                                const rainfallValue = station.value === 'M' ? 0 : parseFloat(station.value);
+                                const popupContent = `<b>${stationName}</b><br>雨量: ${station.value === 'M' ? '維護中/不可用' : `${station.value} mm`}`;
+                                let markerClass = 'rainfall-marker-zero';
+                                if (station.value === 'M' || rainfallValue === 0) {
+                                    markerClass = 'rainfall-marker-zero';
+                                } else if (rainfallValue >= 60) {
+                                    markerClass = 'rainfall-marker-extreme';
+                                } else if (rainfallValue >= 40) {
+                                    markerClass = 'rainfall-marker-high';
+                                } else if (rainfallValue >= 20) {
+                                    markerClass = 'rainfall-marker-medium';
+                                } else if (rainfallValue > 0) {
+                                    markerClass = 'rainfall-marker-low';
+                                }
+                                const customIcon = L.divIcon({
+                                    className: `rainfall-marker ${markerClass}`,
+                                    html: rainfall,
+                                    iconSize: [24, 24],
+                                    iconAnchor: [12, 12]
+                                });
+                                L.marker(coords, { icon: customIcon })
+                                    .addTo(map)
+                                    .bindPopup(popupContent);
+                            }
+                        }
+                    });
+                    if (data.hourlyRainfall.length === 0) {
+                        alert('暫無數據');
+                    }
+                },
+                error: () => {
+                    alert('錯誤：無法載入數據');
+                    console.error('無法載入雨量數據');
+                }
+            });
+        }
+
         $('#tempChart').on('click', () => {
             $('#forecast-modal').removeClass('hidden');
         });
@@ -472,23 +586,17 @@
         });
 
         function getRainfallMapUrl(offsetHours = 0) {
-            // Get current time in Hong Kong (HKT)
             const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
             const date = new Date(now);
-
-            // Subtract hours if offset is provided
             if (offsetHours !== 0) {
                 date.setHours(date.getHours() - offsetHours);
             }
-
-            // Format date and time as YYYYMMDDHHMM
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = "00";
             const formattedDateTime = `${year}${month}${day}${hours}${minutes}`;
-
             return `https://www.hko.gov.hk/wxinfo/rainfall/cokrig_barnes/rfmap${formattedDateTime}c.png`;
         }
 
@@ -496,20 +604,14 @@
             const rainfallMap = $('#rainfall-map');
             const url = getRainfallMapUrl(attemptPreviousHour ? 1 : 0);
             rainfallMap.attr('src', url);
-
-            // Handle image load error
             rainfallMap.off('error').on('error', function () {
                 if (!attemptPreviousHour) {
-                    // Try previous hour's image
                     updateRainfallMap(true);
                 } else {
-                    // If previous hour also fails, set a fallback message or placeholder
                     rainfallMap.attr('src', '');
                     rainfallMap.after('<p class="text-red-500 text-center">無法載入雨量圖</p>');
                 }
             });
-
-            // Remove any previous error messages
             rainfallMap.siblings('.text-red-500').remove();
         }
 
@@ -520,6 +622,7 @@
             fetchWarnings();
             fetchSpecialWeatherTips();
             updateRainfallMap();
+            fetchRainfallData();
         });
     </script>
 </body>
