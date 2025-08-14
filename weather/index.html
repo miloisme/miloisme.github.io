@@ -154,7 +154,7 @@
                         class="w-full object-contain" />
                 </div>
                 <div class="flex flex-col items-center">
-                    <span class="mb-1 text-gray-700 font-medium text-center">上水(風采中學)</span>
+                    <span class="mb-1 text-gray-700 font-medium text-center">上水</span>
                     <img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/elc/latest_ELC.jpg" alt="上水(風采中學)"
                         class="w-full object-contain" />
                 </div>
@@ -179,7 +179,7 @@
 
         <!-- Rainfall Map (New Section) -->
         <div id="rainfall-map-section" class="bg-white rounded-xl shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">香港指定地區過去一小時雨量地圖</h2>
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">指定地區過去一小時雨量地圖</h2>
             <div id="map" class="w-full max-w-5xl mx-auto shadow-sm"></div>
         </div>
 
@@ -195,21 +195,25 @@
 
         <!-- Windy Maps -->
         <div id="windy-maps" class="bg-white rounded-xl shadow-md p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">天氣雷達與地圖</h2>
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">實時天氣地圖</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雷達地圖</h3>
-                    <img src="https://pda.weather.gov.hk/radar/rad_256_320/rad256_6.jpg" width="100%">
-                </div>
-                <div>
-                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">陣風地圖</h3>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雷達</h3>
                     <iframe class="windy-iframe" loading="lazy"
-                        src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=5&overlay=wind&product=ecmwf&level=surface&lat=22.466&lon=113.573"
+                        src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=5&overlay=radar&product=radar&level=surface&lat=21.55&lon=114.293"
                         frameborder="0"></iframe>
                 </div>
                 <div>
-                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">過去一小時雨量圖</h3>
-                    <img id="rainfall-map" src="" width="100%" alt="過去一小時雨量圖">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">陣風</h3>
+                    <iframe class="windy-iframe" loading="lazy"
+                        src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=5&overlay=wind&product=ecmwf&level=surface&lat=21.55&lon=114.293"
+                        frameborder="0"></iframe>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2 text-center">雨及雷暴</h3>
+                    <iframe class="windy-iframe" loading="lazy"
+                        src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=5&overlay=rain&product=ecmwf&level=surface&lat=21.55&lon=114.293"
+                        frameborder="0"></iframe>
                 </div>
             </div>
         </div>
