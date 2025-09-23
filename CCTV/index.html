@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>香港交通監控影像</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            padding: 0;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .controls select {
+            font-size: 18px;
+            padding: 8px 12px;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+            background-color: white;
+            color: #333;
+            cursor: pointer;
+        }
+        .controls select:focus {
+            outline: none;
+            border-color: #0056b3;
+        }
+        .section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 0;
+            margin-bottom: 0;
+        }
+        .image-container {
+            position: relative;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.2s ease;
+        }
+        .image-container:hover img {
+            transform: scale(1.02);
+        }
+        .label-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            color: #333;
+            padding: 6px 10px;
+            border-radius: 15px;
+            font-size: 13px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            backdrop-filter: blur(2px);
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #666;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .hidden {
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .section {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+            .label-overlay {
+                font-size: 12px;
+                padding: 4px 8px;
+                top: 5px;
+                left: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>香港交通監控影像</h1>
+    
+    <div class="controls">
+        <select id="region-select">
+            <option value="all">顯示所有地區</option>
+            <option value="kowloon">九龍</option>
+            <option value="hkisland">港島</option>
+        </select>
+    </div>
+    
+    <div id="kowloon-section" class="section">
+        <div class="image-container">
+            <div class="label-overlay">彌敦道近荔枝角道</div>
+            <img src="https://tdcctv.data.one.gov.hk/K205F.JPG" alt="彌敦道近荔枝角道">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">界限街近大坑東道</div>
+            <img src="https://tdcctv.data.one.gov.hk/K209F.JPG" alt="界限街近大坑東道">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">亞皆老街近染布房街</div>
+            <img src="https://tdcctv.data.one.gov.hk/K202F.JPG" alt="亞皆老街近染布房街">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">佐敦道近渡船街</div>
+            <img src="https://tdcctv.data.one.gov.hk/K108F.JPG" alt="佐敦道近渡船街">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">梳士巴利道近彌敦道</div>
+            <img src="https://tdcctv.data.one.gov.hk/K101F.JPG" alt="梳士巴利道近彌敦道">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">海底隧道九龍入口</div>
+            <img src="https://tdcctv.data.one.gov.hk/K107F.JPG" alt="海底隧道九龍入口">
+        </div>
+    </div>
+    
+    <div id="hkisland-section" class="section">
+        <div class="image-container">
+            <div class="label-overlay">薄扶林道近蒲飛路</div>
+            <img src="https://tdcctv.data.one.gov.hk/H130F.JPG" alt="薄扶林道近蒲飛路">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">告士打道近告士打道花園 - 東行</div>
+            <img src="https://tdcctv.data.one.gov.hk/TDSIEC10003.JPG" alt="告士打道近告士打道花園 - 東行">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">畢打街</div>
+            <img src="https://tdcctv.data.one.gov.hk/H107F.JPG" alt="畢打街">
+        </div>
+        <div class="image-container">
+            <div class="label-overlay">怡和街近軒尼詩道</div>
+            <img src="https://tdcctv.data.one.gov.hk/H203F.JPG" alt="怡和街近軒尼詩道">
+        </div>
+    </div>
+    
+    <div class="footer">
+        更多圖像可前往 <a href="https://www.hkemobility.gov.hk/tc/traffic-information/live/cctv" target="_blank">香港出行易</a> 或 <a href="https://tw.live/hongkong/" target="_blank">即時影像監視器</a>
+    </div>
+    
+    <script>
+        const select = document.getElementById('region-select');
+        const kowloonSection = document.getElementById('kowloon-section');
+        const hkislandSection = document.getElementById('hkisland-section');
+        
+        select.addEventListener('change', () => {
+            const value = select.value;
+            
+            if (value === 'all') {
+                kowloonSection.classList.remove('hidden');
+                hkislandSection.classList.remove('hidden');
+            } else if (value === 'kowloon') {
+                kowloonSection.classList.remove('hidden');
+                hkislandSection.classList.add('hidden');
+            } else if (value === 'hkisland') {
+                kowloonSection.classList.add('hidden');
+                hkislandSection.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
