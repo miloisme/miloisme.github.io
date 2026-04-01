@@ -150,6 +150,14 @@
                         <span class="text-slate-500 font-medium">紫外綫指數</span>
                         <span id="uv-index" class="text-lg font-bold text-purple-600">--</span>
                     </div>
+                    <!-- 新增：空氣質素 (AQHI) -->
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                        <span class="text-slate-500 font-medium">空氣質素 (AQHI)</span>
+                        <div class="text-right">
+                            <div class="text-sm text-slate-600">一般: <span id="aqhi-general" class="font-bold text-slate-800">--</span></div>
+                            <div class="text-sm text-slate-600">路邊: <span id="aqhi-roadside" class="font-bold text-slate-800">--</span></div>
+                        </div>
+                    </div>
                     <div class="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mt-4">
                         <span class="block text-sm font-bold text-blue-800 mb-1">本港地區天氣預報：</span>
                         <p id="local-forecast" class="text-sm text-slate-700 leading-relaxed">載入中...</p>
@@ -227,7 +235,7 @@
         </section>
 
         <footer class="text-center text-slate-400 text-sm py-6">
-            資料來源：香港天文台 | 僅供參考
+            資料來源：香港天文台及環境保護署 | 僅供參考
         </footer>
     </main>
 
@@ -349,6 +357,66 @@
             } catch (e) {
                 console.error('Failed to fetch current weather', e);
             }
+        }
+
+        // 獲取空氣質素 (AQHI)
+        function fetchAQHI() {
+            const script = document.createElement('script');
+            script.src = 'https://www.aqhi.gov.hk/js/data/forecast_aqhi.js?' + new Date().getTime();
+            script.onload = () => {
+                try {
+                    if (typeof aqhi_report === 'undefined') throw new Error('aqhi_report not found');
+                    
+                    const general = aqhi_report.find(item => item.id === 2);
+                    const roadside = aqhi_report.find(item => item.id === 1);
+                    
+                    const getRiskColor = (rangeStr) => {
+                        if (!rangeStr) return 'text-slate-500';
+                        let max = 0;
+                        if (rangeStr.includes('to')) {
+                            max = parseInt(rangeStr.split('to')[1].trim(), 10);
+                        } else if (rangeStr === '10+') {
+                            max = 11;
+                        } else {
+                            max = parseInt(rangeStr, 10);
+                        }
+                        
+                        if (max <= 3) return 'text-green-600';
+                        if (max <= 6) return 'text-amber-500';
+                        if (max <= 7) return 'text-orange-500';
+                        if (max <= 10) return 'text-red-600';
+                        return 'text-slate-900';
+                    };
+
+                    const formatRange = (rangeStr) => rangeStr ? rangeStr.replace(' to ', '-') : '--';
+
+                    if (general) {
+                        const genRange = formatRange(general.AQHIRange);
+                        const genColor = getRiskColor(general.AQHIRange);
+                        document.getElementById('aqhi-general').innerHTML = `${genRange} (<span class="${genColor}">${general.AQHIRiskCT}</span>)`;
+                    }
+                    
+                    if (roadside) {
+                        const roadRange = formatRange(roadside.AQHIRange);
+                        const roadColor = getRiskColor(roadside.AQHIRange);
+                        document.getElementById('aqhi-roadside').innerHTML = `${roadRange} (<span class="${roadColor}">${roadside.AQHIRiskCT}</span>)`;
+                    }
+                } catch (e) {
+                    console.error('Failed to parse AQHI', e);
+                    document.getElementById('aqhi-general').innerText = '載入失敗';
+                    document.getElementById('aqhi-roadside').innerText = '載入失敗';
+                } finally {
+                    // Clean up script tag
+                    document.body.removeChild(script);
+                }
+            };
+            script.onerror = (e) => {
+                console.error('Failed to fetch AQHI', e);
+                document.getElementById('aqhi-general').innerText = '載入失敗';
+                document.getElementById('aqhi-roadside').innerText = '載入失敗';
+                document.body.removeChild(script);
+            };
+            document.body.appendChild(script);
         }
 
         // 獲取本港預報
@@ -596,6 +664,7 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             fetchCurrentWeather();
+            fetchAQHI();
             fetchLocalForecast();
             fetchForecast();
             fetchWarnings();
@@ -605,6 +674,7 @@
             // 每 5 分鐘自動刷新數據
             setInterval(() => {
                 fetchCurrentWeather();
+                fetchAQHI();
                 fetchWarnings();
                 fetchSpecialWeatherTips();
                 fetchRainfallData();
