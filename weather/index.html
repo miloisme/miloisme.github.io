@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>簡易香港天氣</title>
+    <title id="page-title">香港天氣</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,18 +16,16 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@300;400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
         
         body {
-            font-family: 'Noto Sans HK', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f0fdfa;
-            background-image: radial-gradient(at 40% 20%, #e0f2fe 0px, transparent 50%),
-                              radial-gradient(at 80% 0%, #ffedd5 0px, transparent 50%),
-                              radial-gradient(at 0% 50%, #fef3c7 0px, transparent 50%);
+            font-family: 'Noto Sans HK', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fdfa 40%, #fff7ed 70%, #fef3c7 100%);
             background-attachment: fixed;
         }
-
-        /* 現代化跑馬燈 CSS 實現 */
+        .lang-en body, .lang-en [lang] {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
         .marquee-container {
             overflow: hidden;
             white-space: nowrap;
@@ -45,8 +43,6 @@
             0% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
         }
-
-        /* 雨量標記樣式 */
         .rainfall-marker {
             font-weight: 700;
             font-size: 11px;
@@ -66,7 +62,6 @@
         .rainfall-marker-high { background-color: #ef4444; color: #fff; }
         .rainfall-marker-extreme { background-color: #000; color: #fff; border-color: #ef4444; }
 
-        /* 隱藏滾動條但保持可滾動 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -75,178 +70,245 @@
             from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
         }
+
+        .lang-btn {
+            transition: all 0.2s ease;
+        }
+        .lang-btn.active {
+            background: #1e293b;
+            color: white;
+        }
+
+        .warning-icon {
+            width: 52px;
+            height: 52px;
+            cursor: pointer;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            transition: all 0.25s ease;
+            border: 1px solid rgba(0,0,0,0.04);
+            background: white;
+            padding: 4px;
+        }
+        .warning-icon:hover {
+            transform: scale(1.15);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+
+        .hsww-badge {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .hsww-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+
+        .section-card {
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            transition: box-shadow 0.3s ease;
+        }
+        .section-card:hover {
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+        }
+
+
     </style>
 </head>
+<body class="min-h-screen flex flex-col items-center p-3 sm:p-6">
 
-<body class="min-h-screen flex flex-col items-center p-4 sm:p-6">
-    
-    <!-- 頂部標題 -->
-    <header class="w-full max-w-6xl mx-auto bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 py-6 mb-6 text-center">
-        <h3 class="text-sm font-medium text-slate-500 tracking-wider uppercase mb-1">miloisme.github.io</h3>
-        <h1 class="text-3xl sm:text-4xl font-bold text-slate-800 tracking-tight">簡易香港天氣</h1>
+    <!-- ================= TOP HEADER ================= -->
+    <header class="w-full max-w-6xl mx-auto section-card py-5 px-6 mb-5 text-center relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-orange-500/5 pointer-events-none"></div>
+        <div class="relative z-10 flex items-center justify-between">
+            <div class="flex-1 text-left">
+                <span class="text-xs font-medium text-slate-400 tracking-widest uppercase">miloisme.github.io</span>
+            </div>
+            <div class="flex-1 text-center">
+                <h1 class="text-2xl sm:text-4xl font-bold text-slate-800 tracking-tight" data-i18n="site.title">香港天氣</h1>
+            </div>
+            <div class="flex-1 text-right">
+                <div class="inline-flex bg-slate-100 rounded-lg p-0.5 shadow-sm border border-slate-200">
+                    <button onclick="switchLang('tc')" id="lang-tc" class="lang-btn active px-3 py-1.5 text-sm font-medium rounded-md">繁</button>
+                    <button onclick="switchLang('en')" id="lang-en" class="lang-btn px-3 py-1.5 text-sm font-medium rounded-md">EN</button>
+                </div>
+            </div>
+        </div>
     </header>
 
-    <!-- 特別天氣提示 (跑馬燈) -->
-    <div id="special-weather-marquee" class="w-full max-w-6xl mx-auto bg-amber-100/80 backdrop-blur-sm border border-amber-200 rounded-xl shadow-sm p-4 mb-6 hidden cursor-pointer hover:bg-amber-100 transition-colors">
-        <div class="flex items-center">
-            <span class="flex-shrink-0 bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded mr-3 animate-pulse">特別提示</span>
-            <div class="marquee-container">
-                <div id="marquee-content" class="marquee-content text-amber-900 font-medium"></div>
+    <!-- ================= ACTIVE WARNINGS (horizontal row) ================= -->
+    <section class="w-full max-w-6xl mx-auto section-card p-5 mb-5">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span data-i18n="warnings.title">生效警告</span>
+            </h2>
+            <span class="text-xs text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full font-medium" data-i18n="warnings.hint">點擊圖標查看詳情</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 min-h-[60px]">
+            <div id="warnings-data" class="flex flex-wrap items-center gap-3"></div>
+            <div id="hsww-container" class="flex items-center"></div>
+            <div id="warnings-empty" class="hidden text-slate-400 text-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span data-i18n="warnings.none">目前沒有生效警告</span>
             </div>
+        </div>
+    </section>
+
+    <!-- ================= SPECIAL WEATHER TIPS (marquee) ================= -->
+    <div id="special-weather-marquee" class="w-full max-w-6xl mx-auto section-card py-3 px-5 mb-5 hidden cursor-pointer hover:bg-amber-50/80 transition-colors border-amber-200/60">
+        <div class="flex items-center gap-3">
+            <span class="flex-shrink-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm animate-pulse" data-i18n="special.title">特別提示</span>
+            <div class="marquee-container">
+                <div id="marquee-content" class="marquee-content text-amber-900 font-medium text-sm"></div>
+            </div>
+            <svg class="w-4 h-4 flex-shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
     </div>
 
-    <!-- 主要內容區 -->
-    <main class="w-full max-w-6xl mx-auto space-y-6">
-        
-        <!-- 實時照片 -->
-        <section class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-5">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                實時天氣照片
+    <!-- ================= MAIN CONTENT ================= -->
+    <main class="w-full max-w-6xl mx-auto space-y-5">
+
+        <!-- Real-time Photos -->
+        <section class="section-card p-5">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span data-i18n="photos.title">實時天氣照片</span>
             </h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div class="flex flex-col items-center group">
-                    <span class="mb-2 text-slate-600 font-medium text-sm">中環 (維港)</span>
-                    <div class="overflow-hidden rounded-lg shadow-sm w-full"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/cp1/latest_CP1.jpg" alt="中環" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無影像</text></svg>'"/></div>
+                    <span class="mb-2 text-slate-600 font-medium text-sm" data-i18n="photos.central">中環 (維港)</span>
+                    <div class="overflow-hidden rounded-xl shadow-sm w-full bg-slate-100"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/cp1/latest_CP1.jpg" alt="Central" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無</text></svg>'"/></div>
                 </div>
                 <div class="flex flex-col items-center group">
-                    <span class="mb-2 text-slate-600 font-medium text-sm">太平山向東</span>
-                    <div class="overflow-hidden rounded-lg shadow-sm w-full"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/vpa/latest_VPA.jpg" alt="太平山" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無影像</text></svg>'"/></div>
+                    <span class="mb-2 text-slate-600 font-medium text-sm" data-i18n="photos.peak">太平山向東</span>
+                    <div class="overflow-hidden rounded-xl shadow-sm w-full bg-slate-100"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/vpa/latest_VPA.jpg" alt="Peak" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無</text></svg>'"/></div>
                 </div>
                 <div class="flex flex-col items-center group">
-                    <span class="mb-2 text-slate-600 font-medium text-sm">尖沙咀</span>
-                    <div class="overflow-hidden rounded-lg shadow-sm w-full"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/hk2/latest_HK2.jpg" alt="尖沙咀" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無影像</text></svg>'"/></div>
+                    <span class="mb-2 text-slate-600 font-medium text-sm" data-i18n="photos.tsimshatsui">尖沙咀</span>
+                    <div class="overflow-hidden rounded-xl shadow-sm w-full bg-slate-100"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/hk2/latest_HK2.jpg" alt="TST" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無</text></svg>'"/></div>
                 </div>
                 <div class="flex flex-col items-center group">
-                    <span class="mb-2 text-slate-600 font-medium text-sm">長洲</span>
-                    <div class="overflow-hidden rounded-lg shadow-sm w-full"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/cch/latest_CCH.jpg" alt="長洲" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無影像</text></svg>'"/></div>
+                    <span class="mb-2 text-slate-600 font-medium text-sm" data-i18n="photos.cheungchau">長洲</span>
+                    <div class="overflow-hidden rounded-xl shadow-sm w-full bg-slate-100"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/cch/latest_CCH.jpg" alt="Cheung Chau" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無</text></svg>'"/></div>
                 </div>
                 <div class="flex flex-col items-center group">
-                    <span class="mb-2 text-slate-600 font-medium text-sm">上水</span>
-                    <div class="overflow-hidden rounded-lg shadow-sm w-full"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/elc/latest_ELC.jpg" alt="上水" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無影像</text></svg>'"/></div>
+                    <span class="mb-2 text-slate-600 font-medium text-sm" data-i18n="photos.sheungshui">上水</span>
+                    <div class="overflow-hidden rounded-xl shadow-sm w-full bg-slate-100"><img src="https://www.hko.gov.hk/wxinfo/aws/hko_mica/elc/latest_ELC.jpg" alt="Sheung Shui" class="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23e2e8f0\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2364748b\'>暫無</text></svg>'"/></div>
                 </div>
             </div>
         </section>
 
-        <!-- 實時天氣與警告 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- 實時天氣 -->
-            <section class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6">
-                <h2 class="text-xl font-bold text-slate-800 mb-5 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
-                    現時天氣
+        <!-- Current Weather (now full width since warnings moved out) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <section class="section-card p-5">
+                <h2 class="text-xl font-bold text-slate-800 mb-5 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                    <span data-i18n="current.title">現時天氣</span>
                 </h2>
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                        <span class="text-slate-500 font-medium">氣溫</span>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
+                        <span class="text-slate-500 font-medium" data-i18n="current.temp">氣溫</span>
                         <span id="temperature" class="text-2xl font-bold text-slate-800">--°C</span>
                     </div>
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                        <span class="text-slate-500 font-medium">相對濕度</span>
+                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
+                        <span class="text-slate-500 font-medium" data-i18n="current.humidity">相對濕度</span>
                         <span id="humidity" class="text-xl font-bold text-blue-600">--%</span>
                     </div>
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                        <span class="text-slate-500 font-medium">紫外綫指數</span>
+                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
+                        <span class="text-slate-500 font-medium" data-i18n="current.uv">紫外綫指數</span>
                         <span id="uv-index" class="text-lg font-bold text-purple-600">--</span>
                     </div>
-                    <!-- 新增：空氣質素 (AQHI) -->
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                        <span class="text-slate-500 font-medium">空氣質素 (AQHI)</span>
+                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
+                        <span class="text-slate-500 font-medium" data-i18n="current.aqhi">空氣質素 (AQHI)</span>
                         <div class="text-right">
-                            <div class="text-sm text-slate-600">一般: <span id="aqhi-general" class="font-bold text-slate-800">--</span></div>
-                            <div class="text-sm text-slate-600">路邊: <span id="aqhi-roadside" class="font-bold text-slate-800">--</span></div>
+                            <div class="text-sm text-slate-600"><span data-i18n="current.general">一般</span>: <span id="aqhi-general" class="font-bold text-slate-800">--</span></div>
+                            <div class="text-sm text-slate-600"><span data-i18n="current.roadside">路邊</span>: <span id="aqhi-roadside" class="font-bold text-slate-800">--</span></div>
                         </div>
-                    </div>
-                    <div class="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mt-4">
-                        <span class="block text-sm font-bold text-blue-800 mb-1">本港地區天氣預報：</span>
-                        <p id="local-forecast" class="text-sm text-slate-700 leading-relaxed">載入中...</p>
                     </div>
                 </div>
             </section>
 
-            <!-- 天氣警告 -->
-            <section class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6 flex flex-col">
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-xl font-bold text-slate-800 flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                        生效警告
+            <!-- 9-day Forecast chart -->
+            <section class="section-card p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span data-i18n="forecast.title">九天天氣預報</span>
                     </h2>
-                    <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-full">點擊圖標查看</span>
+                    <button onclick="openModal('forecast-modal')" class="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-full transition-colors font-medium" data-i18n="forecast.detailBtn">查看詳情</button>
                 </div>
-                <div id="warnings-data" class="flex flex-wrap gap-4 flex-grow content-start min-h-[150px]">
-                    <div class="w-full h-full flex items-center justify-center">
-                        <div class="animate-pulse flex space-x-2"><div class="w-3 h-3 bg-slate-300 rounded-full"></div><div class="w-3 h-3 bg-slate-300 rounded-full"></div><div class="w-3 h-3 bg-slate-300 rounded-full"></div></div>
-                    </div>
+                <div class="w-full h-72 relative">
+                    <canvas id="tempChart" class="cursor-pointer"></canvas>
                 </div>
             </section>
         </div>
 
-        <!-- 雨量地圖 -->
-        <section class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6">
-            <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center">
-                <svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
-                過去一小時各區雨量
+        <!-- Local Forecast -->
+        <section class="section-card p-5">
+            <h2 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                <span data-i18n="current.forecastLabel">本港地區天氣預報</span>
+            </h2>
+            <div class="bg-blue-50/60 p-5 rounded-xl border border-blue-100">
+                <p id="local-forecast" class="text-sm text-slate-700 leading-relaxed"></p>
+            </div>
+        </section>
+
+        <!-- Rainfall Map -->
+        <section class="section-card p-5">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                <span data-i18n="rainfall.title">過去一小時各區雨量</span>
             </h2>
             <div id="map" class="w-full h-[400px] rounded-xl border border-slate-200 z-0"></div>
             <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600 justify-center">
-                <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-[#f8fafc] border border-slate-300 mr-1"></span> 0mm</span>
-                <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-[#4ade80] mr-1"></span> >0mm</span>
-                <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-[#facc15] mr-1"></span> >20mm</span>
-                <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-[#ef4444] mr-1"></span> >40mm</span>
-                <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-[#000] mr-1"></span> >60mm</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#f8fafc] border border-slate-300"></span> 0mm</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#4ade80]"></span> &gt;0mm</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#facc15]"></span> &gt;20mm</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#ef4444]"></span> &gt;40mm</span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[#000] border border-red-500"></span> &gt;60mm</span>
             </div>
         </section>
 
-        <!-- 九天預報圖表 -->
-        <section class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-bold text-slate-800 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    九天天氣預報
-                </h2>
-                <button onclick="openModal('forecast-modal')" class="text-sm text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-full transition-colors">查看詳情</button>
-            </div>
-            <div class="w-full h-72 relative">
-                <canvas id="tempChart" class="cursor-pointer"></canvas>
-            </div>
-        </section>
-
-        <!-- Windy 地圖 -->
-        <section class="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-white/50 p-6">
-            <h2 class="text-xl font-bold text-slate-800 mb-5 flex items-center">
-                <svg class="w-6 h-6 mr-2 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                實時動態地圖 (Windy)
+        <!-- Windy Map -->
+        <section class="section-card p-5">
+            <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <svg class="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                <span data-i18n="windy.title">實時動態地圖 (Windy)</span>
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="rounded-xl overflow-hidden shadow-sm border border-slate-200">
-                    <div class="bg-slate-100 py-2 text-center text-sm font-bold text-slate-700">雷達</div>
+                    <div class="bg-slate-100/80 py-2 text-center text-sm font-bold text-slate-700" data-i18n="windy.radar">雷達</div>
                     <iframe class="w-full h-64 md:h-72" loading="lazy" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=6&overlay=radar&product=radar&level=surface&lat=22.3&lon=114.17" frameborder="0"></iframe>
                 </div>
                 <div class="rounded-xl overflow-hidden shadow-sm border border-slate-200">
-                    <div class="bg-slate-100 py-2 text-center text-sm font-bold text-slate-700">陣風</div>
+                    <div class="bg-slate-100/80 py-2 text-center text-sm font-bold text-slate-700" data-i18n="windy.gust">陣風</div>
                     <iframe class="w-full h-64 md:h-72" loading="lazy" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=6&overlay=wind&product=ecmwf&level=surface&lat=22.3&lon=114.17" frameborder="0"></iframe>
                 </div>
                 <div class="rounded-xl overflow-hidden shadow-sm border border-slate-200">
-                    <div class="bg-slate-100 py-2 text-center text-sm font-bold text-slate-700">雨及雷暴</div>
+                    <div class="bg-slate-100/80 py-2 text-center text-sm font-bold text-slate-700" data-i18n="windy.rain">雨及雷暴</div>
                     <iframe class="w-full h-64 md:h-72" loading="lazy" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=6&overlay=rain&product=ecmwf&level=surface&lat=22.3&lon=114.17" frameborder="0"></iframe>
                 </div>
             </div>
         </section>
 
-        <footer class="text-center text-slate-400 text-sm py-6">
-            資料來源：香港天文台及環境保護署 | 僅供參考
-        </footer>
+        <footer class="text-center text-slate-400 text-sm py-6" data-i18n="footer">資料來源：香港天文台及環境保護署 | 僅供參考</footer>
     </main>
 
-    <!-- ================= Modals ================= -->
-    
-    <!-- 警告詳情 Modal -->
+    <!-- ================= MODALS ================= -->
+
+    <!-- Warning Detail Modal -->
     <div id="warning-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutsideClick(event, 'warning-modal')">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col modal-enter">
             <div class="flex justify-between items-center p-5 border-b border-slate-100">
-                <h2 id="warning-title" class="text-xl font-bold text-slate-800">警告詳情</h2>
-                <button onclick="closeModal('warning-modal')" class="text-slate-400 hover:text-slate-700 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <h2 id="warning-title" class="text-xl font-bold text-slate-800"></h2>
+                <button onclick="closeModal('warning-modal')" class="text-slate-400 hover:text-slate-700 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <div class="p-5 overflow-y-auto no-scrollbar">
                 <p id="warning-update-time" class="text-xs text-slate-500 mb-4 bg-slate-50 inline-block px-2 py-1 rounded"></p>
@@ -255,12 +317,12 @@
         </div>
     </div>
 
-    <!-- 特別天氣 Modal -->
+    <!-- Special Weather Modal -->
     <div id="special-weather-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutsideClick(event, 'special-weather-modal')">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter">
             <div class="flex justify-between items-center p-5 border-b border-slate-100 bg-amber-50 rounded-t-2xl">
-                <h2 class="text-lg font-bold text-amber-900 flex items-center"><svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>特別天氣提示</h2>
-                <button onclick="closeModal('special-weather-modal')" class="text-amber-700 hover:text-amber-900 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <h2 class="text-lg font-bold text-amber-900 flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span data-i18n="special.modalTitle">特別天氣提示</span></h2>
+                <button onclick="closeModal('special-weather-modal')" class="text-amber-700 hover:text-amber-900 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <div class="p-5 overflow-y-auto no-scrollbar">
                 <div id="special-weather-content" class="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm"></div>
@@ -268,27 +330,155 @@
         </div>
     </div>
 
-    <!-- 九天預報 Modal -->
+    <!-- Forecast Modal -->
     <div id="forecast-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutsideClick(event, 'forecast-modal')">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col modal-enter">
             <div class="flex justify-between items-center p-5 border-b border-slate-100">
-                <h2 class="text-xl font-bold text-slate-800">詳細九天天氣預報</h2>
-                <button onclick="closeModal('forecast-modal')" class="text-slate-400 hover:text-slate-700 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <h2 class="text-xl font-bold text-slate-800" data-i18n="forecast.modalTitle">詳細九天天氣預報</h2>
+                <button onclick="closeModal('forecast-modal')" class="text-slate-400 hover:text-slate-700 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
-            <div class="p-5 overflow-y-auto no-scrollbar bg-slate-50/50">
+            <div class="p-5 overflow-y-auto no-scrollbar bg-slate-50/30">
                 <div id="forecast-data" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
         </div>
     </div>
 
-    <!-- ================= JavaScript 邏輯 ================= -->
+    <!-- HSWW Modal -->
+    <div id="hsww-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onclick="closeModalOnOutsideClick(event, 'hsww-modal')">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col modal-enter">
+            <div class="flex justify-between items-center p-5 border-b border-slate-100 bg-orange-50 rounded-t-2xl">
+                <h2 class="text-lg font-bold text-orange-900 flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg><span data-i18n="hsww.title">勞工暑熱警告</span></h2>
+                <button onclick="closeModal('hsww-modal')" class="text-orange-700 hover:text-orange-900 transition-colors p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div class="p-5 overflow-y-auto no-scrollbar">
+                <div id="hsww-content" class="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JAVASCRIPT ================= -->
     <script>
-        // 全局變量
+        // ── Language / i18n ──
+        let currentLang = 'tc';
+
+        const i18n = {
+            tc: {
+                'site.title': '香港天氣',
+                'warnings.title': '生效警告',
+                'warnings.hint': '點擊圖標查看詳情',
+                'warnings.none': '目前沒有生效警告',
+                'special.title': '特別提示',
+                'special.modalTitle': '特別天氣提示',
+                'photos.title': '實時天氣照片',
+                'photos.central': '中環 (維港)',
+                'photos.peak': '太平山向東',
+                'photos.tsimshatsui': '尖沙咀',
+                'photos.cheungchau': '長洲',
+                'photos.sheungshui': '上水',
+                'current.title': '現時天氣',
+                'current.temp': '氣溫',
+                'current.humidity': '相對濕度',
+                'current.uv': '紫外綫指數',
+                'current.aqhi': '空氣質素 (AQHI)',
+                'current.general': '一般',
+                'current.roadside': '路邊',
+                'current.forecastLabel': '本港地區天氣預報：',
+                'forecast.title': '九天天氣預報',
+                'forecast.detailBtn': '查看詳情',
+                'forecast.modalTitle': '詳細九天天氣預報',
+                'rainfall.title': '過去一小時各區雨量',
+                'windy.title': '實時動態地圖 (Windy)',
+                'windy.radar': '雷達',
+                'windy.gust': '陣風',
+                'windy.rain': '雨及雷暴',
+                'footer': '資料來源：香港天文台及環境保護署 | 僅供參考',
+                'hsww.title': '勞工暑熱警告',
+                'hsww.amber': '黃色',
+                'hsww.red': '紅色',
+                'hsww.black': '黑色',
+                'hsww.none': '目前沒有生效',
+                'hsww.loading': '載入中...',
+                'hsww.fail': '無法載入',
+                'hsww.effective': '生效時間',
+                'hsww.issue': '發出時間',
+                'hsww.cancelled': '已取消',
+                'hsww.label': '勞工暑熱',
+            },
+            en: {
+                'site.title': 'Hong Kong Weather',
+                'warnings.title': 'Active Warnings',
+                'warnings.hint': 'Click icons for details',
+                'warnings.none': 'No active warnings',
+                'special.title': 'Weather Alert',
+                'special.modalTitle': 'Special Weather Tips',
+                'photos.title': 'Live Weather Photos',
+                'photos.central': 'Central (Harbour)',
+                'photos.peak': 'Victoria Peak (E)',
+                'photos.tsimshatsui': 'Tsim Sha Tsui',
+                'photos.cheungchau': 'Cheung Chau',
+                'photos.sheungshui': 'Sheung Shui',
+                'current.title': 'Current Weather',
+                'current.temp': 'Temperature',
+                'current.humidity': 'Relative Humidity',
+                'current.uv': 'UV Index',
+                'current.aqhi': 'Air Quality (AQHI)',
+                'current.general': 'General',
+                'current.roadside': 'Roadside',
+                'current.forecastLabel': 'Local Weather Forecast:',
+                'forecast.title': '9-Day Forecast',
+                'forecast.detailBtn': 'View Details',
+                'forecast.modalTitle': 'Detailed 9-Day Forecast',
+                'rainfall.title': 'Past Hour Rainfall',
+                'windy.title': 'Live Weather Map (Windy)',
+                'windy.radar': 'Radar',
+                'windy.gust': 'Wind Gusts',
+                'windy.rain': 'Rain & Storms',
+                'footer': 'Data: Hong Kong Observatory & EPD | For Reference Only',
+                'hsww.title': 'Heat Stress at Work Warning',
+                'hsww.amber': 'Amber',
+                'hsww.red': 'Red',
+                'hsww.black': 'Black',
+                'hsww.none': 'Not in effect',
+                'hsww.loading': 'Loading...',
+                'hsww.fail': 'Failed to load',
+                'hsww.effective': 'Effective',
+                'hsww.issue': 'Issued',
+                'hsww.cancelled': 'Cancelled',
+                'hsww.label': 'Heat Stress',
+            }
+        };
+
+        function switchLang(lang) {
+            currentLang = lang;
+            document.getElementById('lang-tc').classList.toggle('active', lang === 'tc');
+            document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+            document.documentElement.lang = lang === 'tc' ? 'zh-HK' : 'en';
+            applyI18n();
+            // Refresh API data with new language
+            refreshAllData();
+        }
+
+        function applyI18n() {
+            const dict = i18n[currentLang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (dict[key]) el.textContent = dict[key];
+            });
+            document.getElementById('page-title').textContent = dict['site.title'];
+        }
+
+        function t(key) {
+            return i18n[currentLang][key] || key;
+        }
+
+        function langParam() { return currentLang === 'tc' ? 'tc' : 'en'; }
+
+        // ── Globals ──
         let forecastData = [];
         let leafletMap = null;
         let tempChartInstance = null;
 
-        // 映射表
+        // ── Warning icon maps ──
         const iconMap = {
             "WTS": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/ts.issuing.gif",
             "WHOT": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/vhot.issuing.gif",
@@ -311,7 +501,6 @@
             "WFNTSA": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/ntfl.issuing.gif",
             "WTMW": "https://www.hko.gov.hk/tc/wxinfo/dailywx/images/tsunami-warn.issuing.gif"
         };
-
         const subtypeMap = {
             "WFIREY": "黃色火災危險警告", "WFIRER": "紅色火災危險警告", "WFROST": "霜凍警告",
             "WHOT": "酷熱天氣警告", "WCOLD": "寒冷天氣警告", "WMSGNL": "強烈季候風信號",
@@ -321,81 +510,73 @@
             "WRAINR": "紅色暴雨警告", "WRAINB": "黑色暴雨警告", "WFNTSA": "新界北水浸特別報告",
             "WL": "山泥傾瀉警告", "WTMW": "海嘯警告", "WTS": "雷暴警告"
         };
+        const subtypeMapEn = {
+            "WFIREY": "Yellow Fire Danger", "WFIRER": "Red Fire Danger", "WFROST": "Frost Warning",
+            "WHOT": "Very Hot Weather Warning", "WCOLD": "Cold Weather Warning", "WMSGNL": "Strong Monsoon Signal",
+            "TC1": "Standby Signal No.1", "TC3": "Strong Wind Signal No.3", "TC8NE": "NE Gale Signal No.8",
+            "TC8SE": "SE Gale Signal No.8", "TC8SW": "SW Gale Signal No.8", "TC8NW": "NW Gale Signal No.8",
+            "TC9": "Increasing Gale Signal No.9", "TC10": "Hurricane Signal No.10", "WRAINA": "Amber Rainstorm",
+            "WRAINR": "Red Rainstorm", "WRAINB": "Black Rainstorm", "WFNTSA": "NT Flooding Report",
+            "WL": "Landslip Warning", "WTMW": "Tsunami Warning", "WTS": "Thunderstorm Warning"
+        };
 
-        // Modal 控制
+        // ── Modal controls ──
         function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-        function closeModalOnOutsideClick(e, id) {
-            if (e.target.id === id) closeModal(id);
-        }
+        function closeModalOnOutsideClick(e, id) { if (e.target.id === id) closeModal(id); }
 
-        // 綁定特別天氣點擊事件
         document.getElementById('special-weather-marquee').addEventListener('click', () => openModal('special-weather-modal'));
         document.getElementById('tempChart').addEventListener('click', () => openModal('forecast-modal'));
 
-        // 獲取實時天氣
+        // ── Fetch Current Weather ──
         async function fetchCurrentWeather() {
             try {
-                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc');
+                const lang = langParam();
+                const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=${lang === 'tc' ? 'tc' : 'en'}`);
                 const data = await res.json();
-                
                 const temp = data.temperature.data[0];
                 document.getElementById('temperature').innerText = `${temp.value}°${temp.unit}`;
-                
                 const humidity = data.humidity.data[0];
                 document.getElementById('humidity').innerText = `${humidity.value}%`;
-                
                 const uvEl = document.getElementById('uv-index');
                 if (data.uvindex?.data?.length > 0) {
                     const uv = data.uvindex.data[0];
                     uvEl.innerText = `${uv.value} (${uv.desc})`;
                     uvEl.className = uv.value > 5 ? 'text-lg font-bold text-red-500' : 'text-lg font-bold text-purple-600';
                 } else {
-                    uvEl.innerText = '不適用';
+                    uvEl.innerText = lang === 'tc' ? '不適用' : 'N/A';
                     uvEl.className = 'text-lg font-bold text-slate-400';
                 }
-            } catch (e) {
-                console.error('Failed to fetch current weather', e);
-            }
+            } catch (e) { console.error('Failed to fetch current weather', e); }
         }
 
-        // 獲取空氣質素 (AQHI)
+        // ── AQHI ──
         function fetchAQHI() {
             const script = document.createElement('script');
             script.src = 'https://www.aqhi.gov.hk/js/data/forecast_aqhi.js?' + new Date().getTime();
             script.onload = () => {
                 try {
                     if (typeof aqhi_report === 'undefined') throw new Error('aqhi_report not found');
-                    
                     const general = aqhi_report.find(item => item.id === 2);
                     const roadside = aqhi_report.find(item => item.id === 1);
-                    
                     const getRiskColor = (rangeStr) => {
                         if (!rangeStr) return 'text-slate-500';
                         let max = 0;
-                        if (rangeStr.includes('to')) {
-                            max = parseInt(rangeStr.split('to')[1].trim(), 10);
-                        } else if (rangeStr === '10+') {
-                            max = 11;
-                        } else {
-                            max = parseInt(rangeStr, 10);
-                        }
-                        
+                        if (rangeStr.includes('to')) max = parseInt(rangeStr.split('to')[1].trim(), 10);
+                        else if (rangeStr === '10+') max = 11;
+                        else max = parseInt(rangeStr, 10);
                         if (max <= 3) return 'text-green-600';
                         if (max <= 6) return 'text-amber-500';
                         if (max <= 7) return 'text-orange-500';
                         if (max <= 10) return 'text-red-600';
                         return 'text-slate-900';
                     };
-
                     const formatRange = (rangeStr) => rangeStr ? rangeStr.replace(' to ', '-') : '--';
-
                     if (general) {
                         const genRange = formatRange(general.AQHIRange);
                         const genColor = getRiskColor(general.AQHIRange);
                         document.getElementById('aqhi-general').innerHTML = `${genRange} (<span class="${genColor}">${general.AQHIRiskCT}</span>)`;
                     }
-                    
                     if (roadside) {
                         const roadRange = formatRange(roadside.AQHIRange);
                         const roadColor = getRiskColor(roadside.AQHIRange);
@@ -403,203 +584,239 @@
                     }
                 } catch (e) {
                     console.error('Failed to parse AQHI', e);
-                    document.getElementById('aqhi-general').innerText = '載入失敗';
-                    document.getElementById('aqhi-roadside').innerText = '載入失敗';
-                } finally {
-                    // Clean up script tag
-                    document.body.removeChild(script);
-                }
+                    document.getElementById('aqhi-general').innerText = 'Error';
+                    document.getElementById('aqhi-roadside').innerText = 'Error';
+                } finally { document.body.removeChild(script); }
             };
-            script.onerror = (e) => {
-                console.error('Failed to fetch AQHI', e);
-                document.getElementById('aqhi-general').innerText = '載入失敗';
-                document.getElementById('aqhi-roadside').innerText = '載入失敗';
+            script.onerror = () => {
+                document.getElementById('aqhi-general').innerText = 'Error';
+                document.getElementById('aqhi-roadside').innerText = 'Error';
                 document.body.removeChild(script);
             };
             document.body.appendChild(script);
         }
 
-        // 獲取本港預報
+        // ── Local Forecast ──
         async function fetchLocalForecast() {
             try {
-                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=tc');
+                const lang = langParam();
+                const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=${lang === 'tc' ? 'tc' : 'en'}`);
                 const data = await res.json();
                 const text = [data.generalSituation, data.forecastPeriod, data.forecastDesc, data.outlook].filter(Boolean).join('<br><br>');
-                document.getElementById('local-forecast').innerHTML = text || '暫無資料';
+                document.getElementById('local-forecast').innerHTML = text || (lang === 'tc' ? '暫無資料' : 'No data');
             } catch (e) {
-                document.getElementById('local-forecast').innerText = '載入失敗';
+                document.getElementById('local-forecast').innerText = 'Error';
             }
         }
 
-        // 獲取九天預報
+        // ── 9-Day Forecast ──
         async function fetchForecast() {
             try {
-                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc');
+                const lang = langParam();
+                const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=${lang === 'tc' ? 'tc' : 'en'}`);
                 const data = await res.json();
                 forecastData = data.weatherForecast;
                 renderForecastChart();
                 populateForecastModal();
-            } catch (e) {
-                console.error('Failed to fetch forecast', e);
-            }
+            } catch (e) { console.error('Failed to fetch forecast', e); }
         }
 
-        // 渲染圖表 (Chart.js)
         function renderForecastChart() {
             const ctx = document.getElementById('tempChart').getContext('2d');
             const dates = forecastData.map(f => `${f.forecastDate.substring(4,6)}/${f.forecastDate.substring(6,8)}`);
             const maxTemps = forecastData.map(f => f.forecastMaxtemp.value);
             const minTemps = forecastData.map(f => f.forecastMintemp.value);
-
-            // 創建漸層
             const gradientMax = ctx.createLinearGradient(0, 0, 0, 300);
             gradientMax.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
             gradientMax.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
-
             const gradientMin = ctx.createLinearGradient(0, 0, 0, 300);
             gradientMin.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
             gradientMin.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
-
             if (tempChartInstance) tempChartInstance.destroy();
-            
+            const maxLabel = currentLang === 'tc' ? '最高溫度 (°C)' : 'Max Temp (°C)';
+            const minLabel = currentLang === 'tc' ? '最低溫度 (°C)' : 'Min Temp (°C)';
             tempChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: dates,
                     datasets: [
-                        {
-                            label: '最高溫度 (°C)',
-                            data: maxTemps,
-                            borderColor: '#ef4444',
-                            backgroundColor: gradientMax,
-                            borderWidth: 2,
-                            pointBackgroundColor: '#fff',
-                            pointBorderColor: '#ef4444',
-                            pointRadius: 4,
-                            fill: true,
-                            tension: 0.4
-                        },
-                        {
-                            label: '最低溫度 (°C)',
-                            data: minTemps,
-                            borderColor: '#3b82f6',
-                            backgroundColor: gradientMin,
-                            borderWidth: 2,
-                            pointBackgroundColor: '#fff',
-                            pointBorderColor: '#3b82f6',
-                            pointRadius: 4,
-                            fill: true,
-                            tension: 0.4
-                        }
+                        { label: maxLabel, data: maxTemps, borderColor: '#ef4444', backgroundColor: gradientMax, borderWidth: 2, pointBackgroundColor: '#fff', pointBorderColor: '#ef4444', pointRadius: 4, fill: true, tension: 0.4 },
+                        { label: minLabel, data: minTemps, borderColor: '#3b82f6', backgroundColor: gradientMin, borderWidth: 2, pointBackgroundColor: '#fff', pointBorderColor: '#3b82f6', pointRadius: 4, fill: true, tension: 0.4 }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        y: { grid: { borderDash: [4, 4], color: '#e2e8f0' } },
-                        x: { grid: { display: false } }
-                    },
-                    plugins: {
-                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
-                        tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 10, cornerRadius: 8 }
-                    }
+                    scales: { y: { grid: { borderDash: [4, 4], color: '#e2e8f0' } }, x: { grid: { display: false } } },
+                    plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } }, tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 10, cornerRadius: 8 } }
                 }
             });
         }
 
-        // 填充九天預報 Modal
         function populateForecastModal() {
             const container = document.getElementById('forecast-data');
+            const lowLabel = currentLang === 'tc' ? '最低' : 'Min';
+            const highLabel = currentLang === 'tc' ? '最高' : 'Max';
+            const rainLabel = currentLang === 'tc' ? '降雨概率' : 'Rain';
             container.innerHTML = forecastData.map(f => `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
                     <div class="flex justify-between items-center mb-3 border-b border-slate-50 pb-2">
-                        <h3 class="font-bold text-slate-700">${f.forecastDate.substring(4,6)}月${f.forecastDate.substring(6,8)}日 <span class="text-sm font-normal text-slate-500">(${f.week})</span></h3>
+                        <h3 class="font-bold text-slate-700">${f.forecastDate.substring(4,6)}/${f.forecastDate.substring(6,8)} <span class="text-sm font-normal text-slate-500">(${f.week})</span></h3>
                     </div>
                     <div class="flex justify-between items-center mb-3">
-                        <div class="text-center"><span class="block text-xs text-slate-400">最低</span><span class="text-lg font-bold text-blue-500">${f.forecastMintemp.value}°C</span></div>
-                        <div class="text-center"><span class="block text-xs text-slate-400">最高</span><span class="text-lg font-bold text-red-500">${f.forecastMaxtemp.value}°C</span></div>
-                        <div class="text-center"><span class="block text-xs text-slate-400">降雨概率</span><span class="text-sm font-bold text-slate-600">${f.PSR}</span></div>
+                        <div class="text-center"><span class="block text-xs text-slate-400">${lowLabel}</span><span class="text-lg font-bold text-blue-500">${f.forecastMintemp.value}°C</span></div>
+                        <div class="text-center"><span class="block text-xs text-slate-400">${highLabel}</span><span class="text-lg font-bold text-red-500">${f.forecastMaxtemp.value}°C</span></div>
+                        <div class="text-center"><span class="block text-xs text-slate-400">${rainLabel}</span><span class="text-sm font-bold text-slate-600">${f.PSR}</span></div>
                     </div>
                     <p class="text-sm text-slate-600 bg-slate-50 p-2 rounded">${f.forecastWeather}</p>
                 </div>
             `).join('');
         }
 
-        // 獲取天氣警告
+        // ── Weather Warnings (HKO) ──
         async function fetchWarnings() {
             try {
-                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=tc');
+                const lang = langParam();
+                const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=${lang === 'tc' ? 'tc' : 'en'}`);
                 const data = await res.json();
                 const container = document.getElementById('warnings-data');
+                const emptyEl = document.getElementById('warnings-empty');
                 const details = data.details || [];
-                
+                container.innerHTML = '';
+
                 if (details.length === 0) {
-                    container.innerHTML = '<div class="w-full h-full flex items-center justify-center"><p class="text-slate-400 font-medium">✅ 目前沒有生效的天氣警告</p></div>';
+                    emptyEl.classList.remove('hidden');
                     return;
                 }
-                
-                container.innerHTML = '';
+                emptyEl.classList.add('hidden');
+
                 details.forEach(w => {
                     const code = w.subtype || w.warningStatementCode;
                     const iconSrc = iconMap[code];
                     if (!iconSrc) return;
-                    
-                    const name = subtypeMap[code] || code;
-                    const time = new Date(w.updateTime).toLocaleString('zh-HK', { hour12: false });
-                    const content = w.contents?.join('\n') || "無詳細內容";
-                    
+                    const name = currentLang === 'en' ? (subtypeMapEn[code] || code) : (subtypeMap[code] || code);
+                    const time = new Date(w.updateTime).toLocaleString(currentLang === 'tc' ? 'zh-HK' : 'en-US', { hour12: false });
+                    const content = w.contents?.join('\n') || (currentLang === 'tc' ? '無詳細內容' : 'No details');
                     const img = document.createElement('img');
                     img.src = iconSrc;
                     img.alt = name;
                     img.title = name;
-                    img.className = "w-14 h-14 cursor-pointer rounded-lg shadow-sm hover:scale-110 hover:shadow-md transition-all duration-200 border border-slate-100 bg-white p-1";
-                    
+                    img.className = "warning-icon";
                     img.onclick = () => {
                         document.getElementById('warning-title').innerText = name;
-                        document.getElementById('warning-update-time').innerText = `更新時間: ${time}`;
+                        document.getElementById('warning-update-time').innerText = (currentLang === 'tc' ? '更新時間: ' : 'Updated: ') + time;
                         document.getElementById('warning-content').innerText = content;
                         openModal('warning-modal');
                     };
                     container.appendChild(img);
                 });
             } catch (e) {
-                document.getElementById('warnings-data').innerHTML = '<p class="text-red-500">無法載入天氣警告</p>';
+                document.getElementById('warnings-empty').classList.remove('hidden');
+                document.getElementById('warnings-empty').querySelector('span').textContent = currentLang === 'tc' ? '無法載入天氣警告' : 'Failed to load warnings';
             }
         }
 
-        // 獲取特別天氣提示
+        // ── Special Weather Tips ──
         async function fetchSpecialWeatherTips() {
             try {
-                const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=swt&lang=tc');
+                const lang = langParam();
+                const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=swt&lang=${lang === 'tc' ? 'tc' : 'en'}`);
                 const data = await res.json();
                 const swt = data.swt || [];
-                
                 const marqueeContainer = document.getElementById('special-weather-marquee');
-                if (swt.length === 0) {
-                    marqueeContainer.classList.add('hidden');
-                    return;
-                }
-                
+                if (swt.length === 0) { marqueeContainer.classList.add('hidden'); return; }
                 let modalHtml = '';
                 let marqueeText = '';
-                
-                swt.forEach((tip, index) => {
-                    const time = new Date(tip.updateTime).toLocaleString('zh-HK', { hour12: false });
+                swt.forEach((tip) => {
+                    const time = new Date(tip.updateTime).toLocaleString(currentLang === 'tc' ? 'zh-HK' : 'en-US', { hour12: false });
                     modalHtml += `<div class="mb-4 last:mb-0"><span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded">${time}</span><p class="mt-2 text-slate-700">${tip.desc}</p></div>`;
                     marqueeText += `【${time}】${tip.desc} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`;
                 });
-                
                 document.getElementById('special-weather-content').innerHTML = modalHtml;
                 document.getElementById('marquee-content').innerHTML = marqueeText;
                 marqueeContainer.classList.remove('hidden');
+            } catch (e) { console.error('Failed to fetch special weather tips', e); }
+        }
+
+        // ── HSWW (Labour Heat Stress Warning) ──
+        async function fetchHSWW() {
+            const container = document.getElementById('hsww-container');
+            try {
+                const lang = langParam();
+                const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/hsww.php?lang=${lang === 'tc' ? 'tc' : 'en'}`);
+                const data = await res.json();
+
+                if (!data.hsww || data.hsww.actionCode === 'CANCEL') {
+                    container.innerHTML = `
+                        <div class="hsww-badge flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 shadow-sm">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">${t('hsww.label')}</span>
+                            <span class="w-2 h-2 rounded-full bg-slate-300"></span>
+                            <span class="text-xs text-slate-400">${t('hsww.none')}</span>
+                        </div>`;
+                    return;
+                }
+
+                const h = data.hsww;
+                const level = h.warningLevel; // AMBER, RED, BLACK
+                const levelLabel = t('hsww.' + level.toLowerCase());
+                const desc = h.desc;
+                const effective = h.effectiveTime || '';
+                const issue = h.issueTime || '';
+
+                // Determine colors
+                let bgColor, textColor, borderColor, dotColor;
+                if (level === 'AMBER') {
+                    bgColor = 'bg-amber-50';
+                    textColor = 'text-amber-900';
+                    borderColor = 'border-amber-300';
+                    dotColor = 'bg-amber-400';
+                } else if (level === 'RED') {
+                    bgColor = 'bg-red-50';
+                    textColor = 'text-red-900';
+                    borderColor = 'border-red-300';
+                    dotColor = 'bg-red-500';
+                } else if (level === 'BLACK') {
+                    bgColor = 'bg-slate-800';
+                    textColor = 'text-white';
+                    borderColor = 'border-slate-900';
+                    dotColor = 'bg-red-400';
+                }
+
+                container.innerHTML = `
+                    <div class="hsww-badge flex items-center gap-2 px-4 py-2 rounded-xl border ${borderColor} ${bgColor} shadow-sm" onclick="openHSWWModal('${level}', '${desc.replace(/'/g, "\\'")}', '${effective}', '${issue}')">
+                        <span class="text-xs font-bold ${textColor} uppercase tracking-wider">${t('hsww.label')}</span>
+                        <span class="w-2 h-2 rounded-full ${dotColor} animate-pulse"></span>
+                        <span class="text-sm font-bold ${textColor}">${levelLabel}</span>
+                    </div>`;
             } catch (e) {
-                console.error('Failed to fetch special weather tips', e);
+                console.error('Failed to fetch HSWW', e);
+                container.innerHTML = `
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60">
+                        <span class="text-xs text-slate-400">${t('hsww.fail')}</span>
+                    </div>`;
             }
         }
 
-        // 獲取雨量數據並初始化地圖
+        function openHSWWModal(level, desc, effective, issue) {
+            const lang = currentLang;
+            const levelLabel = t('hsww.' + level.toLowerCase());
+            let badgeClass = 'bg-amber-100 text-amber-800';
+            if (level === 'RED') badgeClass = 'bg-red-100 text-red-800';
+            else if (level === 'BLACK') badgeClass = 'bg-slate-800 text-white';
+
+            document.getElementById('hsww-content').innerHTML = `
+                <div class="text-center mb-4">
+                    <span class="inline-block px-4 py-1.5 rounded-full font-bold text-sm ${badgeClass}">${levelLabel}</span>
+                </div>
+                <p class="text-slate-700 mb-4 leading-relaxed">${desc}</p>
+                <div class="text-xs text-slate-500 space-y-1 border-t border-slate-100 pt-3">
+                    ${effective ? `<p><span class="font-medium">${t('hsww.effective')}:</span> ${effective}</p>` : ''}
+                    ${issue ? `<p><span class="font-medium">${t('hsww.issue')}:</span> ${issue}</p>` : ''}
+                </div>`;
+            openModal('hsww-modal');
+        }
+
+        // ── Rainfall Map ──
         async function fetchRainfallData() {
             if (!leafletMap) {
                 leafletMap = L.map('map', { scrollWheelZoom: false }).setView([22.3193, 114.1694], 11);
@@ -607,7 +824,6 @@
                     attribution: '&copy; OpenStreetMap &copy; CARTO'
                 }).addTo(leafletMap);
             }
-
             const stationCoordinates = {
                 '上水': [22.505, 114.127], '大埔墟': [22.444, 114.171], '濕地公園': [22.467, 114.004],
                 '屯門': [22.391, 113.975], '沙田': [22.402, 114.184], '香港國際機場': [22.315, 113.936],
@@ -618,25 +834,17 @@
                 '尖沙咀': [22.302, 114.174], '新蒲崗': [22.336, 114.195], '深水埗': [22.333, 114.149],
                 '西貢': [22.382, 114.272], '滘西洲': [22.371, 114.363], '荃灣': [22.372, 114.138]
             };
-
             try {
                 const res = await fetch('https://data.weather.gov.hk/weatherAPI/opendata/hourlyRainfall.php?lang=tc');
                 const data = await res.json();
-                
-                // 清除舊標記
-                leafletMap.eachLayer((layer) => {
-                    if (layer instanceof L.Marker) leafletMap.removeLayer(layer);
-                });
-
+                leafletMap.eachLayer((layer) => { if (layer instanceof L.Marker) leafletMap.removeLayer(layer); });
                 data.hourlyRainfall.forEach(station => {
                     let name = station.automaticWeatherStation === '香港天文台' ? '尖沙咀' : station.automaticWeatherStation;
                     const coords = stationCoordinates[name];
-                    
                     if (coords) {
                         const isM = station.value === 'M';
                         const val = isM ? 0 : parseFloat(station.value);
                         const displayVal = isM ? 'M' : Math.round(val);
-                        
                         let markerClass = 'rainfall-marker-zero';
                         if (!isM && val > 0) {
                             if (val >= 60) markerClass = 'rainfall-marker-extreme';
@@ -644,41 +852,33 @@
                             else if (val >= 20) markerClass = 'rainfall-marker-medium';
                             else markerClass = 'rainfall-marker-low';
                         }
-
-                        const icon = L.divIcon({
-                            className: `rainfall-marker ${markerClass}`,
-                            html: displayVal,
-                            iconSize: [28, 28],
-                            iconAnchor: [14, 14]
-                        });
-
-                        L.marker(coords, { icon }).addTo(leafletMap)
-                         .bindPopup(`<div class="text-center font-bold text-slate-700">${name}</div><div class="text-sm text-slate-500 mt-1">過去一小時雨量: <span class="text-blue-600 font-bold">${isM ? '維護中' : val + ' mm'}</span></div>`);
+                        const icon = L.divIcon({ className: `rainfall-marker ${markerClass}`, html: displayVal, iconSize: [28, 28], iconAnchor: [14, 14] });
+                        const popupText = currentLang === 'tc' ?
+                            `<div class="text-center font-bold text-slate-700">${name}</div><div class="text-sm text-slate-500 mt-1">過去一小時雨量: <span class="text-blue-600 font-bold">${isM ? '維護中' : val + ' mm'}</span></div>` :
+                            `<div class="text-center font-bold text-slate-700">${name}</div><div class="text-sm text-slate-500 mt-1">1hr rainfall: <span class="text-blue-600 font-bold">${isM ? 'Maint' : val + ' mm'}</span></div>`;
+                        L.marker(coords, { icon }).addTo(leafletMap).bindPopup(popupText);
                     }
                 });
-            } catch (e) {
-                console.error('Failed to fetch rainfall data', e);
-            }
+            } catch (e) { console.error('Failed to fetch rainfall data', e); }
         }
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
+        // ── Refresh all ──
+        function refreshAllData() {
             fetchCurrentWeather();
             fetchAQHI();
             fetchLocalForecast();
             fetchForecast();
             fetchWarnings();
             fetchSpecialWeatherTips();
+            fetchHSWW();
             fetchRainfallData();
-            
-            // 每 5 分鐘自動刷新數據
-            setInterval(() => {
-                fetchCurrentWeather();
-                fetchAQHI();
-                fetchWarnings();
-                fetchSpecialWeatherTips();
-                fetchRainfallData();
-            }, 300000);
+        }
+
+        // ── Init ──
+        document.addEventListener('DOMContentLoaded', () => {
+            applyI18n();
+            refreshAllData();
+            setInterval(refreshAllData, 300000);
         });
     </script>
 </body>
