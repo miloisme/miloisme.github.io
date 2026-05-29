@@ -95,13 +95,25 @@
             box-shadow: 0 6px 16px rgba(0,0,0,0.15);
         }
 
-        .hsww-badge {
-            transition: all 0.3s ease;
+        .hsww-warning-icon {
+            width: 52px;
+            height: 52px;
             cursor: pointer;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            transition: all 0.25s ease;
+            border: 1px solid rgba(0,0,0,0.04);
+            background: white;
+            padding: 4px;
+            animation: warningBlink 0.8s ease-in-out infinite;
         }
-        .hsww-badge:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        .hsww-warning-icon:hover {
+            transform: scale(1.15);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+        @keyframes warningBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.25; }
         }
 
         .section-card {
@@ -230,6 +242,14 @@
                             <div class="text-sm text-slate-600"><span data-i18n="current.general">一般</span>: <span id="aqhi-general" class="font-bold text-slate-800">--</span></div>
                             <div class="text-sm text-slate-600"><span data-i18n="current.roadside">路邊</span>: <span id="aqhi-roadside" class="font-bold text-slate-800">--</span></div>
                         </div>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
+                        <span class="text-slate-500 font-medium" data-i18n="current.wind">風速 (京士柏)</span>
+                        <span id="wind" class="text-xl font-bold text-emerald-600">--</span>
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
+                        <span class="text-slate-500 font-medium" data-i18n="current.feelsLike">體感溫度</span>
+                        <span id="feels-like" class="text-xl font-bold text-orange-600">--°C</span>
                     </div>
                 </div>
             </section>
@@ -382,6 +402,8 @@
                 'current.aqhi': '空氣質素 (AQHI)',
                 'current.general': '一般',
                 'current.roadside': '路邊',
+                'current.wind': '風速 (京士柏)',
+                'current.feelsLike': '體感溫度',
                 'current.forecastLabel': '本港地區天氣預報：',
                 'forecast.title': '九天天氣預報',
                 'forecast.detailBtn': '查看詳情',
@@ -424,6 +446,8 @@
                 'current.aqhi': 'Air Quality (AQHI)',
                 'current.general': 'General',
                 'current.roadside': 'Roadside',
+                'current.wind': 'Wind (King\'s Park)',
+                'current.feelsLike': 'Feels Like',
                 'current.forecastLabel': 'Local Weather Forecast:',
                 'forecast.title': '9-Day Forecast',
                 'forecast.detailBtn': 'View Details',
@@ -477,6 +501,9 @@
         let forecastData = [];
         let leafletMap = null;
         let tempChartInstance = null;
+        let lastTempC = null;
+        let lastHumidity = null;
+        let lastWindMph = null;
 
         // ── Warning icon maps ──
         const iconMap = {
@@ -536,8 +563,11 @@
                 const data = await res.json();
                 const temp = data.temperature.data[0];
                 document.getElementById('temperature').innerText = `${temp.value}°${temp.unit}`;
+                lastTempC = parseFloat(temp.value);
                 const humidity = data.humidity.data[0];
                 document.getElementById('humidity').innerText = `${humidity.value}%`;
+                lastHumidity = parseFloat(humidity.value);
+                updateFeelsLike();
                 const uvEl = document.getElementById('uv-index');
                 if (data.uvindex?.data?.length > 0) {
                     const uv = data.uvindex.data[0];
@@ -548,6 +578,57 @@
                     uvEl.className = 'text-lg font-bold text-slate-400';
                 }
             } catch (e) { console.error('Failed to fetch current weather', e); }
+        }
+
+        // ── THW (Feels-Like Temperature) ──
+        function calculateTHW(tempC, humidity, windMph) {
+            const T = tempC * 9 / 5 + 32;
+            const R = Math.round(humidity);
+            const c1 = -42.379, c2 = 2.04901523, c3 = 10.14333127, c4 = -0.22475541;
+            const c5 = -6.83783e-3, c6 = -5.481717e-2, c7 = 1.22874e-3, c8 = 8.5282e-4, c9 = -1.99e-6;
+            const HI_F = c1 + c2 * T + c3 * R + c4 * T * R + c5 * T * T + c6 * R * R + c7 * T * T * R + c8 * T * R * R + c9 * T * T * R * R;
+            const THW_F = HI_F - (1.072 * windMph);
+            return (THW_F - 32) * 5 / 9;
+        }
+
+        function updateFeelsLike() {
+            const el = document.getElementById('feels-like');
+            if (lastTempC !== null && lastHumidity !== null && lastWindMph !== null) {
+                const thw = calculateTHW(lastTempC, lastHumidity, lastWindMph);
+                el.innerText = `${thw.toFixed(1)}°C`;
+                if (thw >= 33) el.className = 'text-xl font-bold text-red-500';
+                else if (thw >= 28) el.className = 'text-xl font-bold text-orange-500';
+                else if (thw >= 20) el.className = 'text-xl font-bold text-amber-500';
+                else el.className = 'text-xl font-bold text-blue-500';
+            } else {
+                el.innerText = '--°C';
+            }
+        }
+
+        // ── Wind Data (京士柏 10-min wind) ──
+        async function fetchWindData() {
+            try {
+                const res = await fetch('https://www.hko.gov.hk/wxinfo/ts/index_wind_c.json');
+                const data = await res.json();
+                const entries = data.maparea || [];
+                for (const entry of entries) {
+                    if (entry.link && entry.link.includes('kp')) {
+                        const m = entry.text.match(/風向:(\S+)\s+風速:([\d.]+)公里\/小時\s+最高陣風:([\d.]+)公里\/小時/);
+                        if (m) {
+                            const direction = m[1];
+                            const speedKmh = parseFloat(m[2]);
+                            lastWindMph = speedKmh / 1.609;
+                            document.getElementById('wind').innerText = `${direction} ${speedKmh} km/h`;
+                            updateFeelsLike();
+                            return;
+                        }
+                    }
+                }
+                document.getElementById('wind').innerText = currentLang === 'tc' ? '暫無數據' : 'No data';
+            } catch (e) {
+                console.error('Failed to fetch wind data', e);
+                document.getElementById('wind').innerText = currentLang === 'tc' ? '無法載入' : 'Error';
+            }
         }
 
         // ── AQHI ──
@@ -685,7 +766,10 @@
                 container.innerHTML = '';
 
                 if (details.length === 0) {
-                    emptyEl.classList.remove('hidden');
+                    const hswwContainer = document.getElementById('hsww-container');
+                    if (hswwContainer.children.length === 0) {
+                        emptyEl.classList.remove('hidden');
+                    }
                     return;
                 }
                 emptyEl.classList.add('hidden');
@@ -711,8 +795,11 @@
                     container.appendChild(img);
                 });
             } catch (e) {
-                document.getElementById('warnings-empty').classList.remove('hidden');
-                document.getElementById('warnings-empty').querySelector('span').textContent = currentLang === 'tc' ? '無法載入天氣警告' : 'Failed to load warnings';
+                const hswwContainer = document.getElementById('hsww-container');
+                if (!hswwContainer || hswwContainer.children.length === 0) {
+                    document.getElementById('warnings-empty').classList.remove('hidden');
+                    document.getElementById('warnings-empty').querySelector('span').textContent = currentLang === 'tc' ? '無法載入天氣警告' : 'Failed to load warnings';
+                }
             }
         }
 
@@ -741,59 +828,49 @@
         // ── HSWW (Labour Heat Stress Warning) ──
         async function fetchHSWW() {
             const container = document.getElementById('hsww-container');
+            const emptyEl = document.getElementById('warnings-empty');
             try {
                 const lang = langParam();
                 const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/hsww.php?lang=${lang === 'tc' ? 'tc' : 'en'}`);
                 const data = await res.json();
 
                 if (!data.hsww || data.hsww.actionCode === 'CANCEL') {
-                    container.innerHTML = `
-                        <div class="hsww-badge flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 shadow-sm">
-                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">${t('hsww.label')}</span>
-                            <span class="w-2 h-2 rounded-full bg-slate-300"></span>
-                            <span class="text-xs text-slate-400">${t('hsww.none')}</span>
-                        </div>`;
+                    container.innerHTML = '';
+                    const wc = document.getElementById('warnings-data');
+                    if (wc.children.length === 0) {
+                        emptyEl.classList.remove('hidden');
+                    }
                     return;
                 }
 
                 const h = data.hsww;
-                const level = h.warningLevel; // AMBER, RED, BLACK
+                const level = h.warningLevel;
                 const levelLabel = t('hsww.' + level.toLowerCase());
                 const desc = h.desc;
                 const effective = h.effectiveTime || '';
                 const issue = h.issueTime || '';
 
-                // Determine colors
-                let bgColor, textColor, borderColor, dotColor;
+                let iconSrc;
                 if (level === 'AMBER') {
-                    bgColor = 'bg-amber-50';
-                    textColor = 'text-amber-900';
-                    borderColor = 'border-amber-300';
-                    dotColor = 'bg-amber-400';
+                    iconSrc = 'https://www.hko.gov.hk/images/index_icon/hkhi_yellow.png';
                 } else if (level === 'RED') {
-                    bgColor = 'bg-red-50';
-                    textColor = 'text-red-900';
-                    borderColor = 'border-red-300';
-                    dotColor = 'bg-red-500';
+                    iconSrc = 'https://www.hko.gov.hk/images/index_icon/hkhi_red.png';
                 } else if (level === 'BLACK') {
-                    bgColor = 'bg-slate-800';
-                    textColor = 'text-white';
-                    borderColor = 'border-slate-900';
-                    dotColor = 'bg-red-400';
+                    iconSrc = 'https://www.hko.gov.hk/images/index_icon/hkhi_black.png';
                 }
 
-                container.innerHTML = `
-                    <div class="hsww-badge flex items-center gap-2 px-4 py-2 rounded-xl border ${borderColor} ${bgColor} shadow-sm" onclick="openHSWWModal('${level}', '${desc.replace(/'/g, "\\'")}', '${effective}', '${issue}')">
-                        <span class="text-xs font-bold ${textColor} uppercase tracking-wider">${t('hsww.label')}</span>
-                        <span class="w-2 h-2 rounded-full ${dotColor} animate-pulse"></span>
-                        <span class="text-sm font-bold ${textColor}">${levelLabel}</span>
-                    </div>`;
+                const img = document.createElement('img');
+                img.src = iconSrc;
+                img.alt = levelLabel;
+                img.title = `${t('hsww.title')} (${levelLabel})`;
+                img.className = 'hsww-warning-icon';
+                img.onclick = () => openHSWWModal(level, desc, effective, issue);
+                container.innerHTML = '';
+                container.appendChild(img);
+                emptyEl.classList.add('hidden');
             } catch (e) {
                 console.error('Failed to fetch HSWW', e);
-                container.innerHTML = `
-                    <div class="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60">
-                        <span class="text-xs text-slate-400">${t('hsww.fail')}</span>
-                    </div>`;
+                container.innerHTML = '';
             }
         }
 
@@ -871,6 +948,7 @@
             fetchWarnings();
             fetchSpecialWeatherTips();
             fetchHSWW();
+            fetchWindData();
             fetchRainfallData();
         }
 
