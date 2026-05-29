@@ -95,25 +95,21 @@
             box-shadow: 0 6px 16px rgba(0,0,0,0.15);
         }
 
-        .hsww-warning-icon {
-            width: 52px;
-            height: 52px;
+        .hsww-badge {
+            transition: all 0.3s ease;
             cursor: pointer;
-            border-radius: 12px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-            transition: all 0.25s ease;
-            border: 1px solid rgba(0,0,0,0.04);
-            background: white;
-            padding: 4px;
-            animation: warningBlink 0.8s ease-in-out infinite;
         }
-        .hsww-warning-icon:hover {
-            transform: scale(1.15);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        .hsww-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         }
-        @keyframes warningBlink {
+
+        .warning-flash {
+            animation: warningFlash 1s ease-in-out infinite;
+        }
+        @keyframes warningFlash {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.25; }
+            50% { opacity: 0.3; }
         }
 
         .section-card {
@@ -242,14 +238,6 @@
                             <div class="text-sm text-slate-600"><span data-i18n="current.general">一般</span>: <span id="aqhi-general" class="font-bold text-slate-800">--</span></div>
                             <div class="text-sm text-slate-600"><span data-i18n="current.roadside">路邊</span>: <span id="aqhi-roadside" class="font-bold text-slate-800">--</span></div>
                         </div>
-                    </div>
-                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
-                        <span class="text-slate-500 font-medium" data-i18n="current.wind">風速 (京士柏)</span>
-                        <span id="wind" class="text-xl font-bold text-emerald-600">--</span>
-                    </div>
-                    <div class="flex items-center justify-between bg-slate-50/80 p-3 rounded-xl">
-                        <span class="text-slate-500 font-medium" data-i18n="current.feelsLike">體感溫度</span>
-                        <span id="feels-like" class="text-xl font-bold text-orange-600">--°C</span>
                     </div>
                 </div>
             </section>
@@ -402,8 +390,6 @@
                 'current.aqhi': '空氣質素 (AQHI)',
                 'current.general': '一般',
                 'current.roadside': '路邊',
-                'current.wind': '風速 (京士柏)',
-                'current.feelsLike': '體感溫度',
                 'current.forecastLabel': '本港地區天氣預報：',
                 'forecast.title': '九天天氣預報',
                 'forecast.detailBtn': '查看詳情',
@@ -446,8 +432,6 @@
                 'current.aqhi': 'Air Quality (AQHI)',
                 'current.general': 'General',
                 'current.roadside': 'Roadside',
-                'current.wind': 'Wind (King\'s Park)',
-                'current.feelsLike': 'Feels Like',
                 'current.forecastLabel': 'Local Weather Forecast:',
                 'forecast.title': '9-Day Forecast',
                 'forecast.detailBtn': 'View Details',
@@ -501,9 +485,6 @@
         let forecastData = [];
         let leafletMap = null;
         let tempChartInstance = null;
-        let lastTempC = null;
-        let lastHumidity = null;
-        let lastWindMph = null;
 
         // ── Warning icon maps ──
         const iconMap = {
@@ -563,11 +544,8 @@
                 const data = await res.json();
                 const temp = data.temperature.data[0];
                 document.getElementById('temperature').innerText = `${temp.value}°${temp.unit}`;
-                lastTempC = parseFloat(temp.value);
                 const humidity = data.humidity.data[0];
                 document.getElementById('humidity').innerText = `${humidity.value}%`;
-                lastHumidity = parseFloat(humidity.value);
-                updateFeelsLike();
                 const uvEl = document.getElementById('uv-index');
                 if (data.uvindex?.data?.length > 0) {
                     const uv = data.uvindex.data[0];
@@ -578,71 +556,6 @@
                     uvEl.className = 'text-lg font-bold text-slate-400';
                 }
             } catch (e) { console.error('Failed to fetch current weather', e); }
-        }
-
-        // ── THW (Feels-Like Temperature) ──
-        function calculateTHW(tempC, humidity, windMph) {
-            const T = tempC * 9 / 5 + 32;
-            const R = Math.round(humidity);
-            const c1 = -42.379, c2 = 2.04901523, c3 = 10.14333127, c4 = -0.22475541;
-            const c5 = -6.83783e-3, c6 = -5.481717e-2, c7 = 1.22874e-3, c8 = 8.5282e-4, c9 = -1.99e-6;
-            const HI_F = c1 + c2 * T + c3 * R + c4 * T * R + c5 * T * T + c6 * R * R + c7 * T * T * R + c8 * T * R * R + c9 * T * T * R * R;
-            const THW_F = HI_F - (1.072 * windMph);
-            return (THW_F - 32) * 5 / 9;
-        }
-
-        function updateFeelsLike() {
-            const el = document.getElementById('feels-like');
-            if (lastTempC !== null && lastHumidity !== null && lastWindMph !== null) {
-                const thw = calculateTHW(lastTempC, lastHumidity, lastWindMph);
-                el.innerText = `${thw.toFixed(1)}°C`;
-                if (thw >= 33) el.className = 'text-xl font-bold text-red-500';
-                else if (thw >= 28) el.className = 'text-xl font-bold text-orange-500';
-                else if (thw >= 20) el.className = 'text-xl font-bold text-amber-500';
-                else el.className = 'text-xl font-bold text-blue-500';
-            } else {
-                el.innerText = '--°C';
-            }
-        }
-
-        // ── Wind Data (京士柏 10-min wind) ──
-        const windDirMap = {
-            '北': 'N', '東北': 'NE', '東': 'E', '東南': 'SE',
-            '南': 'S', '西南': 'SW', '西': 'W', '西北': 'NW',
-            '風向不定': 'Variable'
-        };
-        async function fetchWindData() {
-            const tryFetch = async (url) => {
-                const res = await fetch(url);
-                return await res.json();
-            };
-            const parseKP = (data) => {
-                const entries = data.maparea || [];
-                for (const entry of entries) {
-                    if (entry.link && entry.link.includes('kp')) {
-                        const m = entry.text.match(/風向:(\S+)\s+風速:([\d.]+)公里\/小時\s+最高陣風:([\d.]+)公里\/小時/);
-                        if (m) {
-                            const dirCn = m[1];
-                            const speedKmh = parseFloat(m[2]);
-                            const direction = currentLang === 'en' ? (windDirMap[dirCn] || dirCn) : dirCn;
-                            lastWindMph = speedKmh / 1.609;
-                            document.getElementById('wind').innerText = `${direction} ${speedKmh} km/h`;
-                            updateFeelsLike();
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            };
-            // Try local wind.json (updated every 10 min by GitHub Actions) first,
-            // fall back to remote JSON if Actions hasn't run yet
-            for (const url of ['wind.json', 'https://www.hko.gov.hk/wxinfo/ts/index_wind_c.json']) {
-                try {
-                    const data = await tryFetch(url);
-                    if (parseKP(data)) return;
-                } catch (e) { /* try next */ }
-            }
-            document.getElementById('wind').innerText = currentLang === 'tc' ? '無法載入' : 'Error';
         }
 
         // ── AQHI ──
@@ -781,10 +694,7 @@
                 container.innerHTML = '';
 
                 if (details.length === 0) {
-                    const hswwContainer = document.getElementById('hsww-container');
-                    if (hswwContainer.children.length === 0) {
-                        emptyEl.classList.remove('hidden');
-                    }
+                    emptyEl.classList.remove('hidden');
                     return;
                 }
                 emptyEl.classList.add('hidden');
@@ -810,11 +720,8 @@
                     container.appendChild(img);
                 });
             } catch (e) {
-                const hswwContainer = document.getElementById('hsww-container');
-                if (!hswwContainer || hswwContainer.children.length === 0) {
-                    document.getElementById('warnings-empty').classList.remove('hidden');
-                    document.getElementById('warnings-empty').querySelector('span').textContent = currentLang === 'tc' ? '無法載入天氣警告' : 'Failed to load warnings';
-                }
+                document.getElementById('warnings-empty').classList.remove('hidden');
+                document.getElementById('warnings-empty').querySelector('span').textContent = currentLang === 'tc' ? '無法載入天氣警告' : 'Failed to load warnings';
             }
         }
 
@@ -841,9 +748,13 @@
         }
 
         // ── HSWW (Labour Heat Stress Warning) ──
+        const hswwIconMap = {
+            "AMBER": "https://www.hko.gov.hk/images/index_icon/hkhi_yellow.png",
+            "RED": "https://www.hko.gov.hk/images/index_icon/hkhi_red.png",
+            "BLACK": "https://www.hko.gov.hk/images/index_icon/hkhi_black.png"
+        };
         async function fetchHSWW() {
             const container = document.getElementById('hsww-container');
-            const emptyEl = document.getElementById('warnings-empty');
             try {
                 const lang = langParam();
                 const res = await fetch(`https://data.weather.gov.hk/weatherAPI/opendata/hsww.php?lang=${lang === 'tc' ? 'tc' : 'en'}`);
@@ -851,38 +762,28 @@
 
                 if (!data.hsww || data.hsww.actionCode === 'CANCEL') {
                     container.innerHTML = '';
-                    const wc = document.getElementById('warnings-data');
-                    if (wc.children.length === 0) {
-                        emptyEl.classList.remove('hidden');
-                    }
                     return;
                 }
 
                 const h = data.hsww;
-                const level = h.warningLevel;
+                const level = h.warningLevel; // AMBER, RED, BLACK
                 const levelLabel = t('hsww.' + level.toLowerCase());
+                const iconSrc = hswwIconMap[level];
                 const desc = h.desc;
                 const effective = h.effectiveTime || '';
                 const issue = h.issueTime || '';
-
-                let iconSrc;
-                if (level === 'AMBER') {
-                    iconSrc = 'https://www.hko.gov.hk/images/index_icon/hkhi_yellow.png';
-                } else if (level === 'RED') {
-                    iconSrc = 'https://www.hko.gov.hk/images/index_icon/hkhi_red.png';
-                } else if (level === 'BLACK') {
-                    iconSrc = 'https://www.hko.gov.hk/images/index_icon/hkhi_black.png';
-                }
+                const name = currentLang === 'en' ? 'Heat Stress at Work Warning' : '勞工暑熱警告';
 
                 const img = document.createElement('img');
                 img.src = iconSrc;
-                img.alt = levelLabel;
-                img.title = `${t('hsww.title')} (${levelLabel})`;
-                img.className = 'hsww-warning-icon';
-                img.onclick = () => openHSWWModal(level, desc, effective, issue);
+                img.alt = name;
+                img.title = name + ' - ' + levelLabel;
+                img.className = "warning-icon warning-flash";
+                img.onclick = () => {
+                    openHSWWModal(level, desc, effective, issue);
+                };
                 container.innerHTML = '';
                 container.appendChild(img);
-                emptyEl.classList.add('hidden');
             } catch (e) {
                 console.error('Failed to fetch HSWW', e);
                 container.innerHTML = '';
@@ -963,7 +864,6 @@
             fetchWarnings();
             fetchSpecialWeatherTips();
             fetchHSWW();
-            fetchWindData();
             fetchRainfallData();
         }
 
