@@ -607,9 +607,11 @@
 
         // ── Wind Data (京士柏 10-min wind) ──
         async function fetchWindData() {
-            try {
-                const res = await fetch('https://www.hko.gov.hk/wxinfo/ts/index_wind_c.json');
-                const data = await res.json();
+            const tryFetch = async (url) => {
+                const res = await fetch(url);
+                return await res.json();
+            };
+            const parseKP = (data) => {
                 const entries = data.maparea || [];
                 for (const entry of entries) {
                     if (entry.link && entry.link.includes('kp')) {
@@ -620,15 +622,21 @@
                             lastWindMph = speedKmh / 1.609;
                             document.getElementById('wind').innerText = `${direction} ${speedKmh} km/h`;
                             updateFeelsLike();
-                            return;
+                            return true;
                         }
                     }
                 }
-                document.getElementById('wind').innerText = currentLang === 'tc' ? '暫無數據' : 'No data';
-            } catch (e) {
-                console.error('Failed to fetch wind data', e);
-                document.getElementById('wind').innerText = currentLang === 'tc' ? '無法載入' : 'Error';
+                return false;
+            };
+            // Try local wind.json (updated every 10 min by GitHub Actions) first,
+            // fall back to remote JSON if Actions hasn't run yet
+            for (const url of ['wind.json', 'https://www.hko.gov.hk/wxinfo/ts/index_wind_c.json']) {
+                try {
+                    const data = await tryFetch(url);
+                    if (parseKP(data)) return;
+                } catch (e) { /* try next */ }
             }
+            document.getElementById('wind').innerText = currentLang === 'tc' ? '無法載入' : 'Error';
         }
 
         // ── AQHI ──
