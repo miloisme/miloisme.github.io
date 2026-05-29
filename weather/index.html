@@ -606,6 +606,11 @@
         }
 
         // ── Wind Data (京士柏 10-min wind) ──
+        const windDirMap = {
+            '北': 'N', '東北': 'NE', '東': 'E', '東南': 'SE',
+            '南': 'S', '西南': 'SW', '西': 'W', '西北': 'NW',
+            '風向不定': 'Variable'
+        };
         async function fetchWindData() {
             const tryFetch = async (url) => {
                 const res = await fetch(url);
@@ -617,8 +622,9 @@
                     if (entry.link && entry.link.includes('kp')) {
                         const m = entry.text.match(/風向:(\S+)\s+風速:([\d.]+)公里\/小時\s+最高陣風:([\d.]+)公里\/小時/);
                         if (m) {
-                            const direction = m[1];
+                            const dirCn = m[1];
                             const speedKmh = parseFloat(m[2]);
+                            const direction = currentLang === 'en' ? (windDirMap[dirCn] || dirCn) : dirCn;
                             lastWindMph = speedKmh / 1.609;
                             document.getElementById('wind').innerText = `${direction} ${speedKmh} km/h`;
                             updateFeelsLike();
@@ -661,15 +667,16 @@
                         return 'text-slate-900';
                     };
                     const formatRange = (rangeStr) => rangeStr ? rangeStr.replace(' to ', '-') : '--';
+                    const riskField = currentLang === 'en' ? 'AQHIRiskEN' : 'AQHIRiskCT';
                     if (general) {
                         const genRange = formatRange(general.AQHIRange);
                         const genColor = getRiskColor(general.AQHIRange);
-                        document.getElementById('aqhi-general').innerHTML = `${genRange} (<span class="${genColor}">${general.AQHIRiskCT}</span>)`;
+                        document.getElementById('aqhi-general').innerHTML = `${genRange} (<span class="${genColor}">${general[riskField]}</span>)`;
                     }
                     if (roadside) {
                         const roadRange = formatRange(roadside.AQHIRange);
                         const roadColor = getRiskColor(roadside.AQHIRange);
-                        document.getElementById('aqhi-roadside').innerHTML = `${roadRange} (<span class="${roadColor}">${roadside.AQHIRiskCT}</span>)`;
+                        document.getElementById('aqhi-roadside').innerHTML = `${roadRange} (<span class="${roadColor}">${roadside[riskField]}</span>)`;
                     }
                 } catch (e) {
                     console.error('Failed to parse AQHI', e);
